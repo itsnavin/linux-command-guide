@@ -291,6 +291,9 @@ class MobileAppTests(AppTests):
     viewport = {"width": 390, "height": 844}
     is_mobile = True
 
+    def test_skip_link(self):
+        self.skipTest("Tab-key navigation is covered by the desktop suite; touch emulation has no Tab order guarantee")
+
     def test_mobile_layout(self):
         self.open("#/cmd/dd")
         box = self.page.locator("#search").bounding_box()
