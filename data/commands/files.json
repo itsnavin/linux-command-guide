@@ -1,0 +1,409 @@
+[
+  {
+    "id": "pwd",
+    "name": "pwd",
+    "category": "files",
+    "summary": "Print the directory you are currently in.",
+    "aliases": ["current directory", "where am i"],
+    "tags": ["working directory", "location", "path", "cwd"],
+    "man": "pwd.1",
+    "install": { "status": "builtin", "note": "Shell builtin; /bin/pwd also exists." },
+    "compat": "Same everywhere.",
+    "examples": [
+      {
+        "title": "Show the current directory",
+        "cmd": "pwd",
+        "explain": "Prints an absolute path that starts with /. Relative paths you type are resolved from here.",
+        "risk": "read",
+        "test": { "expect": "^/" }
+      },
+      {
+        "title": "Show the real path with symlinks resolved",
+        "cmd": "pwd -P",
+        "explain": "If you entered the directory through a symbolic link, plain pwd shows the link path; -P shows the physical directory.",
+        "risk": "read",
+        "options": [["-P", "Physical path: resolve symbolic links"]],
+        "test": { "expect": "^/" }
+      }
+    ]
+  },
+  {
+    "id": "cd",
+    "name": "cd",
+    "category": "files",
+    "summary": "Change the current directory.",
+    "aliases": ["change directory", "go to folder"],
+    "tags": ["navigate", "directory", "folder", "home", "back", "spaces in path"],
+    "docs": [{ "label": "Bash manual: Bourne shell builtins (cd)", "url": "https://www.gnu.org/software/bash/manual/html_node/Bourne-Shell-Builtins.html" }],
+    "install": { "status": "builtin", "note": "Shell builtin; it must be, because a separate program cannot change your shell's directory." },
+    "compat": "cd - and ~ work in bash, dash and BusyBox ash.",
+    "examples": [
+      {
+        "title": "Enter a directory",
+        "cmd": "cd <dir>",
+        "explain": "Relative paths start from the current directory; absolute paths start with /. 'No such file or directory' usually means a typo or wrong starting directory; check with pwd and ls.",
+        "risk": "read"
+      },
+      {
+        "title": "Enter a directory whose name contains spaces",
+        "cmd": "cd \"My Projects\"",
+        "explain": "Without quotes the shell would split this into two arguments, My and Projects. Quotes (or a backslash before the space) keep it as one name.",
+        "risk": "read"
+      },
+      {
+        "title": "Go up one level, home, or back",
+        "cmd": "cd ..",
+        "explain": ".. is the parent directory. cd with no argument (or cd ~) goes to your home directory; cd - jumps back to the previous directory and prints it.",
+        "risk": "read",
+        "options": [["..", "Parent directory"]],
+        "test": { "expect": "" }
+      }
+    ]
+  },
+  {
+    "id": "ls",
+    "name": "ls",
+    "category": "files",
+    "summary": "List directory contents, with sizes, permissions, owners and dates.",
+    "aliases": ["dir", "list files", "ll"],
+    "tags": ["list", "directory", "hidden files", "permissions", "size", "sort by time", "newest"],
+    "man": "ls.1",
+    "docs": [{ "label": "GNU coreutils: ls invocation", "url": "https://www.gnu.org/software/coreutils/manual/html_node/ls-invocation.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" }, "note": "Alpine and most embedded systems use the BusyBox ls by default." },
+    "compat": "BusyBox ls supports the common short options (-l -a -h -t -r -d) but not every GNU long option. Do not parse ls output in scripts; use find or a shell glob instead.",
+    "examples": [
+      {
+        "title": "Long listing including hidden files",
+        "cmd": "ls -la",
+        "explain": "Names starting with . are hidden by default; -a shows them, including . (this dir) and .. (parent).",
+        "output": "Columns: type and permissions (e.g. -rw-r--r--, first character d = directory, l = symlink), link count, owner, group, size in bytes, modification time, name.",
+        "risk": "read",
+        "options": [["-l", "Long format: one file per line with details"], ["-a", "Include entries whose names start with ."]],
+        "test": { "expect": "notes\\.txt" }
+      },
+      {
+        "title": "Human-readable sizes",
+        "cmd": "ls -lh",
+        "explain": "Sizes show as 4.0K, 12M, 1.1G instead of raw bytes. Note: a directory's size is the size of its entry list, not of its contents; use du for that.",
+        "risk": "read",
+        "options": [["-h", "Print sizes with K, M, G suffixes (with -l)"]],
+        "test": { "expect": "notes\\.txt" }
+      },
+      {
+        "title": "Newest files last",
+        "cmd": "ls -ltr",
+        "explain": "-t sorts by modification time newest first, -r reverses it so the most recently changed files end up at the bottom, next to your prompt.",
+        "risk": "read",
+        "options": [["-t", "Sort by modification time"], ["-r", "Reverse the sort order"]],
+        "test": { "expect": "notes\\.txt" }
+      },
+      {
+        "title": "Show a directory itself, not its contents",
+        "cmd": "ls -ld <dir>",
+        "explain": "Useful for checking a directory's permissions and owner.",
+        "risk": "read",
+        "options": [["-d", "List directories themselves, not their contents"]]
+      }
+    ]
+  },
+  {
+    "id": "mkdir",
+    "name": "mkdir",
+    "category": "files",
+    "summary": "Create directories, including missing parent directories.",
+    "aliases": ["make directory", "create folder", "new folder"],
+    "tags": ["create", "directory", "folder", "parents"],
+    "man": "mkdir.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "-p and -m are POSIX and work in BusyBox.",
+    "examples": [
+      {
+        "title": "Create a directory",
+        "cmd": "mkdir <dir>",
+        "explain": "Fails with 'File exists' if the name is taken, and with 'No such file or directory' if a parent directory is missing.",
+        "risk": "modify"
+      },
+      {
+        "title": "Create a whole path at once",
+        "cmd": "mkdir -p build/obj/drivers",
+        "explain": "-p creates every missing parent and does not complain if the directory already exists, which makes it safe to repeat in scripts and Makefiles.",
+        "risk": "modify",
+        "options": [["-p", "Create parent directories as needed; no error if it exists"]],
+        "test": { "after": "ls -d build/obj/drivers", "expect": "build/obj/drivers" }
+      },
+      {
+        "title": "Create a private directory",
+        "cmd": "mkdir -m 700 <dir>",
+        "explain": "Only you (the owner) can read, enter or write it. The mode is applied directly instead of being reduced by your umask.",
+        "risk": "modify",
+        "options": [["-m 700", "Set permission bits on creation (rwx for owner only)"]]
+      }
+    ]
+  },
+  {
+    "id": "touch",
+    "name": "touch",
+    "category": "files",
+    "summary": "Create an empty file, or update a file's timestamps.",
+    "aliases": ["create file", "new file", "empty file"],
+    "tags": ["create", "file", "timestamp", "modification time", "make rebuild"],
+    "man": "touch.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "The -d date parsing shown below is GNU-specific; BusyBox accepts a narrower set of date formats.",
+    "examples": [
+      {
+        "title": "Create an empty file (or refresh its timestamp)",
+        "cmd": "touch <file>",
+        "explain": "If the file exists its contents are untouched and only its modification time changes. make uses timestamps, so touching a source file forces it to rebuild.",
+        "risk": "modify",
+        "test": { "vars": { "file": "new-file.txt" }, "after": "ls new-file.txt", "expect": "new-file\\.txt" }
+      },
+      {
+        "title": "Set a specific modification time",
+        "cmd": "touch -d '2024-01-31 12:00' <file>",
+        "explain": "Handy for testing scripts that look for old or new files.",
+        "risk": "modify",
+        "options": [["-d", "Use the given date string instead of now (GNU)"]],
+        "test": { "vars": { "file": "notes.txt" }, "after": "ls -l --time-style=+%Y-%m-%d notes.txt", "expect": "2024-01-31" }
+      }
+    ]
+  },
+  {
+    "id": "cp",
+    "name": "cp",
+    "category": "files",
+    "summary": "Copy files and directories.",
+    "aliases": ["copy", "duplicate", "backup file"],
+    "tags": ["copy", "backup", "recursive", "preserve", "overwrite"],
+    "man": "cp.1",
+    "docs": [{ "label": "GNU coreutils: cp invocation", "url": "https://www.gnu.org/software/coreutils/manual/html_node/cp-invocation.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "-i, -r and -p work in BusyBox. -a is supported by GNU and BusyBox cp but is not POSIX.",
+    "examples": [
+      {
+        "title": "Copy a file, asking before overwriting",
+        "cmd": "cp -i <source> <destination>",
+        "explain": "If <destination> is an existing directory the file is copied into it. With -i you get a prompt instead of a silent overwrite.",
+        "risk": "modify",
+        "warning": "Without -i, cp replaces an existing destination file with no confirmation and no undo.",
+        "options": [["-i", "Interactive: prompt before overwriting"]]
+      },
+      {
+        "title": "Make a quick backup copy before editing",
+        "cmd": "cp notes.txt notes.txt.bak",
+        "explain": "Simple and effective before changing a config file. Restore it later by copying it back.",
+        "risk": "modify",
+        "test": { "after": "cmp notes.txt notes.txt.bak && echo same", "expect": "same" }
+      },
+      {
+        "title": "Copy a directory tree, keeping modes and times",
+        "cmd": "cp -a <source-dir> <destination-dir>",
+        "explain": "-a (archive) copies recursively and preserves permissions, timestamps and symbolic links. If <destination-dir> exists, the source is copied inside it as a subdirectory.",
+        "risk": "modify",
+        "warning": "Files with the same name in the destination are overwritten. Check the destination with ls first.",
+        "options": [["-a", "Archive: recursive, preserve attributes, keep symlinks as links"]]
+      }
+    ]
+  },
+  {
+    "id": "mv",
+    "name": "mv",
+    "category": "files",
+    "summary": "Move or rename files and directories.",
+    "aliases": ["move", "rename"],
+    "tags": ["rename", "move", "overwrite"],
+    "man": "mv.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "-i is POSIX; -n (never overwrite) is supported by GNU and BusyBox.",
+    "examples": [
+      {
+        "title": "Rename a file, asking before overwriting",
+        "cmd": "mv -i <old-name> <new-name>",
+        "explain": "Renaming within the same file system is instant and keeps the file's contents and permissions.",
+        "risk": "modify",
+        "warning": "Without -i, an existing <new-name> is replaced silently.",
+        "options": [["-i", "Prompt before overwriting"]],
+        "test": { "vars": { "old-name": "notes.txt", "new-name": "renamed.txt" }, "after": "ls", "expect": "renamed\\.txt" }
+      },
+      {
+        "title": "Move files into a directory",
+        "cmd": "mv -i <file> <dir>/",
+        "explain": "The trailing / makes the intent clear: if <dir> does not exist you get an error instead of a file renamed to <dir>.",
+        "risk": "modify",
+        "options": [["-i", "Prompt before overwriting"]]
+      }
+    ]
+  },
+  {
+    "id": "rm",
+    "name": "rm",
+    "category": "files",
+    "summary": "Delete files and directories. There is no recycle bin.",
+    "aliases": ["delete", "remove", "rmdir", "erase"],
+    "tags": ["delete", "remove", "recursive", "dash file name", "double dash", "empty directory"],
+    "man": "rm.1",
+    "docs": [{ "label": "GNU coreutils: rm invocation", "url": "https://www.gnu.org/software/coreutils/manual/html_node/rm-invocation.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "Deleted files are not moved to a trash folder; recovery is generally not possible. GNU rm refuses to operate on / by default, but that does not protect anything else.",
+    "examples": [
+      {
+        "title": "Look before you delete",
+        "cmd": "ls -la <path>",
+        "explain": "Inspect-first workflow: confirm the exact names, and that a wildcard matches only what you expect, before running rm. Tip: echo rm *.o prints what the wildcard expands to without deleting anything.",
+        "risk": "read"
+      },
+      {
+        "title": "Delete a file, with confirmation",
+        "cmd": "rm -i <file>",
+        "explain": "Asks 'remove regular file ...?' for each file; answer y to delete.",
+        "risk": "destructive",
+        "warning": "Deletion is permanent. Check the name with ls first, especially when using wildcards such as *.",
+        "options": [["-i", "Prompt before every removal"]]
+      },
+      {
+        "title": "Delete a file whose name starts with a dash",
+        "cmd": "rm -i -- <file>",
+        "explain": "-- ends option parsing: everything after it is treated as a file name, so a file named -rf is deleted instead of being read as options. Many commands support --.",
+        "risk": "destructive",
+        "warning": "Deletion is permanent. Confirm the name with ls -la first.",
+        "options": [["--", "End of options; following arguments are names even if they start with -"]]
+      },
+      {
+        "title": "Remove an empty directory",
+        "cmd": "rmdir <empty-dir>",
+        "explain": "rmdir only works on empty directories, so it cannot accidentally delete contents. 'Directory not empty' means files remain inside.",
+        "risk": "modify",
+        "test": { "vars": { "empty-dir": "emptydir" }, "before": "mkdir emptydir", "after": "ls", "reject": "emptydir" }
+      },
+      {
+        "title": "Delete a directory and everything inside it",
+        "cmd": "rm -r -i <dir>",
+        "explain": "-r descends into the directory; -i asks about each file. Preview first with find <dir> | head -n 50. Use a path relative to where you are, and run pwd to be sure where that is.",
+        "risk": "destructive",
+        "warning": "Recursive deletion removes the whole tree permanently. Never point it at /, ~, a system directory, or a variable that might be empty (rm -r \"$DIR/\" with an empty DIR becomes rm -r /).",
+        "options": [["-r", "Recursive: remove directories and their contents"], ["-i", "Prompt before every removal"]]
+      }
+    ]
+  },
+  {
+    "id": "ln",
+    "name": "ln",
+    "category": "files",
+    "summary": "Create links, most commonly symbolic links (shortcuts) to files or directories.",
+    "aliases": ["symlink", "symbolic link", "shortcut", "readlink"],
+    "tags": ["link", "symlink", "shortcut", "hard link"],
+    "man": "ln.1",
+    "docs": [{ "label": "man readlink (man7.org)", "url": "https://man7.org/linux/man-pages/man1/readlink.1.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "Argument order is target first, then link name, like cp. A relative target is resolved relative to the link's directory, not your current directory.",
+    "examples": [
+      {
+        "title": "Create a symbolic link",
+        "cmd": "ln -s <target> <link-name>",
+        "explain": "<link-name> becomes a pointer to <target>. Deleting the link does not touch the target; deleting the target leaves a broken (dangling) link.",
+        "risk": "modify",
+        "options": [["-s", "Make a symbolic link instead of a hard link"]],
+        "test": { "vars": { "target": "notes.txt", "link-name": "latest.txt" }, "after": "ls -l latest.txt", "expect": "latest\\.txt -> notes\\.txt" }
+      },
+      {
+        "title": "See where a link points",
+        "cmd": "readlink -f <link-name>",
+        "explain": "Prints the final absolute path after following every link. ls -l also shows 'name -> target'.",
+        "risk": "read",
+        "options": [["-f", "Follow every link and print the canonical path"]],
+        "test": { "before": "ln -s notes.txt latest.txt", "vars": { "link-name": "latest.txt" }, "expect": "/notes\\.txt$" }
+      }
+    ]
+  },
+  {
+    "id": "stat",
+    "name": "stat",
+    "category": "files",
+    "summary": "Show detailed metadata of a file: size, permissions in octal, owner, inode and timestamps.",
+    "aliases": ["file info", "file details"],
+    "tags": ["metadata", "timestamps", "inode", "octal permissions", "size"],
+    "man": "stat.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "The -c format option works in GNU and BusyBox stat. macOS/BSD stat uses different options.",
+    "examples": [
+      {
+        "title": "Show all metadata",
+        "cmd": "stat <file>",
+        "explain": "Access shows permissions as both octal (0644) and symbolic (-rw-r--r--). Modify is when the contents changed, Change is when metadata (permissions, owner) changed.",
+        "risk": "read",
+        "test": { "vars": { "file": "notes.txt" }, "expect": "Size:" }
+      },
+      {
+        "title": "Print just octal permissions, owner and name",
+        "cmd": "stat -c '%a %U %n' <file>",
+        "explain": "Custom format: %a octal mode, %U owner name, %n file name, %s size in bytes.",
+        "risk": "read",
+        "options": [["-c", "Use the given format string"]],
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^[0-7]{3} \\S+ notes\\.txt$" }
+      }
+    ]
+  },
+  {
+    "id": "file",
+    "name": "file",
+    "category": "files",
+    "summary": "Identify what kind of data a file contains: text, ELF binary (and for which CPU), image, archive...",
+    "aliases": ["file type", "what is this file", "elf type"],
+    "tags": ["identify", "binary", "elf", "architecture", "arm", "x86", "cross compile", "mime"],
+    "man": "file.1",
+    "docs": [{ "label": "file(1) upstream project", "url": "https://www.darwinsys.com/file/" }],
+    "install": { "status": "often-missing", "packages": { "debian": "file", "fedora": "file", "arch": "file", "alpine": "file" }, "note": "Often absent from minimal containers and embedded images." },
+    "compat": "Output wording differs between versions; read it, do not parse it exactly.",
+    "examples": [
+      {
+        "title": "Check what a file really is",
+        "cmd": "file <file>",
+        "explain": "Looks at the contents, not the extension. A compiled program shows something like 'ELF 64-bit LSB pie executable, x86-64'.",
+        "risk": "read",
+        "test": { "vars": { "file": "notes.txt" }, "expect": "text", "needs": ["file"] }
+      },
+      {
+        "title": "Check that a cross-compiled binary targets the board",
+        "cmd": "file <program>",
+        "explain": "For an embedded target you want to see the board's architecture, e.g. 'ARM, EABI5' or 'ARM aarch64'. If it says x86-64 you built with the host compiler, and the board will reply 'Exec format error' or 'not found'.",
+        "output": "Also check 'dynamically linked, interpreter /lib/ld-linux...': if that loader is missing on the target, running the program fails with 'not found' even though the file exists.",
+        "risk": "read"
+      },
+      {
+        "title": "Print only the MIME type",
+        "cmd": "file --mime-type <file>",
+        "explain": "Prints e.g. text/plain or application/x-executable; easier to use in scripts.",
+        "risk": "read",
+        "options": [["--mime-type", "Print the MIME type instead of a description"]]
+      }
+    ]
+  },
+  {
+    "id": "realpath",
+    "name": "realpath",
+    "category": "files",
+    "summary": "Print the absolute, canonical path of a file.",
+    "aliases": ["absolute path", "full path"],
+    "tags": ["path", "absolute", "canonical", "relative path"],
+    "man": "realpath.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "BusyBox realpath supports no options; --relative-to is GNU only.",
+    "examples": [
+      {
+        "title": "Get the full path of a file",
+        "cmd": "realpath <file>",
+        "explain": "Resolves ., .. and symbolic links. Useful when another tool needs an absolute path.",
+        "risk": "read",
+        "test": { "vars": { "file": "src/../notes.txt" }, "expect": "^/.*/notes\\.txt$" }
+      },
+      {
+        "title": "Compute a relative path between two locations",
+        "cmd": "realpath --relative-to=<base-dir> <path>",
+        "explain": "Prints <path> as seen from <base-dir>, for example ../include/foo.h.",
+        "risk": "read",
+        "options": [["--relative-to", "Print the result relative to this directory (GNU)"]],
+        "test": { "vars": { "base-dir": "src", "path": "notes.txt" }, "expect": "^\\.\\./notes\\.txt$" }
+      }
+    ]
+  }
+]

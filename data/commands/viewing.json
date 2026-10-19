@@ -1,0 +1,234 @@
+[
+  {
+    "id": "cat",
+    "name": "cat",
+    "category": "viewing",
+    "summary": "Print whole files to the terminal, or join several files together.",
+    "aliases": ["concatenate", "print file", "show file"],
+    "tags": ["read", "print", "join", "combine", "line numbers", "tabs", "line endings", "crlf"],
+    "man": "cat.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "-n works in BusyBox. -A is GNU; BusyBox offers -v -e -t for similar output.",
+    "examples": [
+      {
+        "title": "Print a short file",
+        "cmd": "cat <file>",
+        "explain": "Best for short files. For long files use less, head or tail so the start does not scroll away.",
+        "risk": "read",
+        "test": { "vars": { "file": "notes.txt" }, "expect": "cherry" }
+      },
+      {
+        "title": "Number the lines",
+        "cmd": "cat -n <file>",
+        "explain": "Useful when a compiler error mentions a line number.",
+        "risk": "read",
+        "options": [["-n", "Number all output lines"]],
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^\\s+1\\s+apple" }
+      },
+      {
+        "title": "Reveal tabs and Windows line endings",
+        "cmd": "cat -A <file>",
+        "explain": "Tabs show as ^I, line ends as $ and Windows carriage returns as ^M. Explains 'missing separator' Makefile errors (spaces instead of a tab) and '/bin/bash^M: bad interpreter'.",
+        "risk": "read",
+        "options": [["-A", "Show all non-printing characters (GNU)"]],
+        "test": { "vars": { "file": "src/Makefile" }, "expect": "\\^I" }
+      },
+      {
+        "title": "Join two files into a new file",
+        "cmd": "cat <file1> <file2> > <combined-file>",
+        "explain": "Prints file1 then file2 and redirects the result into a new file.",
+        "risk": "modify",
+        "warning": "> empties <combined-file> first if it already exists. Never use one of the input files as the output: it gets truncated before it is read.",
+        "options": [[">", "Write output to a file, replacing its contents"]]
+      }
+    ]
+  },
+  {
+    "id": "less",
+    "name": "less",
+    "category": "viewing",
+    "summary": "Scroll and search through long files or command output, one screen at a time.",
+    "aliases": ["more", "pager", "view file"],
+    "tags": ["page", "scroll", "search in file", "follow log", "read logs"],
+    "man": "less.1",
+    "docs": [{ "label": "less project home", "url": "https://www.greenwoodsoftware.com/less/" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "less", "fedora": "less", "arch": "less", "alpine": "less" }, "note": "BusyBox provides a basic less; very small systems may only have more." },
+    "compat": "Keys: Space/PageDown next page, b back, /text search forward, n next match, G end, g start, q quit.",
+    "examples": [
+      {
+        "title": "Open a file for reading",
+        "cmd": "less <file>",
+        "explain": "less never modifies the file. Press h inside less for the full list of keys.",
+        "risk": "read"
+      },
+      {
+        "title": "Page through command output",
+        "cmd": "<command> | less",
+        "explain": "The pipe sends the output of the first command into less. Add 2>&1 before the pipe to include error messages too, e.g. make 2>&1 | less.",
+        "risk": "read",
+        "options": [["|", "Pipe: connect standard output of the left command to the input of the right one"]]
+      },
+      {
+        "title": "Show line numbers",
+        "cmd": "less -N <file>",
+        "explain": "Prefixes every line with its number.",
+        "risk": "read",
+        "options": [["-N", "Display line numbers"]]
+      },
+      {
+        "title": "Follow a growing log file",
+        "cmd": "less +F <file>",
+        "explain": "Like tail -f, but press Ctrl+C to stop following and scroll or search, then F to resume following.",
+        "risk": "read",
+        "options": [["+F", "Start in follow mode"]]
+      }
+    ]
+  },
+  {
+    "id": "head",
+    "name": "head",
+    "category": "viewing",
+    "summary": "Print the first lines (or bytes) of a file or of command output.",
+    "aliases": ["first lines", "top of file"],
+    "tags": ["first", "beginning", "preview", "limit output"],
+    "man": "head.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "-n and -c are POSIX/BusyBox compatible. The old form head -20 still works in most implementations but -n 20 is clearer.",
+    "examples": [
+      {
+        "title": "First 20 lines of a file",
+        "cmd": "head -n 20 <file>",
+        "explain": "Defaults to 10 lines without -n.",
+        "risk": "read",
+        "options": [["-n 20", "Number of lines to print"]],
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^apple\\nbanana" }
+      },
+      {
+        "title": "Limit long command output",
+        "cmd": "<command> | head -n 5",
+        "explain": "Shows only the first lines of output; common after sort to get a 'top 5'.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "tail",
+    "name": "tail",
+    "category": "viewing",
+    "summary": "Print the last lines of a file, or follow a log file as new lines are written.",
+    "aliases": ["last lines", "follow log", "tail -f"],
+    "tags": ["end of file", "follow", "logs", "live", "monitor"],
+    "man": "tail.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "-f works in BusyBox; -F (follow by name, survive log rotation) is GNU and newer BusyBox.",
+    "examples": [
+      {
+        "title": "Last 50 lines of a log",
+        "cmd": "tail -n 50 <file>",
+        "explain": "The most recent entries in a log file are at the end.",
+        "risk": "read",
+        "options": [["-n 50", "Number of lines from the end"]],
+        "test": { "vars": { "file": "logs/app.log" }, "expect": "INFO done$" }
+      },
+      {
+        "title": "Watch a log live",
+        "cmd": "tail -f <file>",
+        "explain": "Keeps printing new lines as they are appended. Press Ctrl+C to stop; that only stops tail, not the program writing the log.",
+        "risk": "read",
+        "options": [["-f", "Follow: keep reading as the file grows"]]
+      },
+      {
+        "title": "Follow a log that gets rotated",
+        "cmd": "tail -F <file>",
+        "explain": "Like -f but reopens the file if it is replaced by log rotation.",
+        "risk": "read",
+        "options": [["-F", "Follow by name and retry if the file disappears"]]
+      }
+    ]
+  },
+  {
+    "id": "wc",
+    "name": "wc",
+    "category": "viewing",
+    "summary": "Count lines, words and bytes.",
+    "aliases": ["word count", "line count", "count lines"],
+    "tags": ["count", "lines", "how many", "size"],
+    "man": "wc.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "Portable.",
+    "examples": [
+      {
+        "title": "Count lines in a file",
+        "cmd": "wc -l < notes.txt",
+        "explain": "Using < (input redirection) prints just the number; wc -l notes.txt prints the number followed by the file name.",
+        "risk": "read",
+        "options": [["-l", "Count newline characters"], ["<", "Feed the file to the command's standard input"]],
+        "test": { "expect": "^\\s*7$" }
+      },
+      {
+        "title": "Count results of another command",
+        "cmd": "find . -name '*.c' | wc -l",
+        "explain": "Counts how many lines the first command printed, here the number of .c files below the current directory.",
+        "risk": "read",
+        "test": { "expect": "^\\s*1$" }
+      }
+    ]
+  },
+  {
+    "id": "diff",
+    "name": "diff",
+    "category": "viewing",
+    "summary": "Show the differences between two files or two directories.",
+    "aliases": ["compare files", "patch", "cmp"],
+    "tags": ["compare", "difference", "changes", "patch", "unified diff"],
+    "man": "diff.1",
+    "docs": [{ "label": "GNU diffutils manual", "url": "https://www.gnu.org/software/diffutils/manual/diffutils.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "diffutils", "fedora": "diffutils", "arch": "diffutils", "alpine": "diffutils" }, "note": "BusyBox has a smaller diff." },
+    "compat": "Exit status: 0 = identical, 1 = different, 2 = trouble (e.g. file missing). Scripts can test it with if diff -q a b >/dev/null; then ...",
+    "examples": [
+      {
+        "title": "Unified diff of two files",
+        "cmd": "diff -u <old-file> <new-file>",
+        "explain": "Lines starting with - exist only in the old file, + only in the new file; @@ lines show the line ranges. This is the same format git diff and patch use.",
+        "risk": "read",
+        "options": [["-u", "Unified format with 3 lines of context"]],
+        "test": { "before": "cp notes.txt notes2.txt && echo 'extra line' >> notes2.txt", "vars": { "old-file": "notes.txt", "new-file": "notes2.txt" }, "status": 1, "expect": "^\\+extra line" }
+      },
+      {
+        "title": "Only say whether files differ",
+        "cmd": "diff -q <file1> <file2>",
+        "explain": "Prints nothing if identical. Use -r with two directories to compare whole trees.",
+        "risk": "read",
+        "options": [["-q", "Report only whether files differ"]]
+      }
+    ]
+  },
+  {
+    "id": "od",
+    "name": "od",
+    "category": "viewing",
+    "summary": "Dump a file as hexadecimal bytes, to see binary data or hidden characters.",
+    "aliases": ["hexdump", "xxd", "hex dump", "octal dump"],
+    "tags": ["hex", "binary", "bytes", "firmware", "bin file", "dump"],
+    "man": "od.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "od is in coreutils and BusyBox everywhere. Alternatives: hexdump -C (util-linux or BusyBox) and xxd (ships with vim). The z suffix in -t x1z is a GNU extension.",
+    "examples": [
+      {
+        "title": "Hex and ASCII side by side",
+        "cmd": "od -A x -t x1z -v <file> | head",
+        "explain": "Left column is the offset in hex, then each byte in hex, then printable characters between > <. head keeps a large binary from flooding the terminal.",
+        "risk": "read",
+        "options": [["-A x", "Print offsets in hexadecimal"], ["-t x1z", "Show 1-byte hex values plus printable characters (GNU)"], ["-v", "Do not collapse repeated lines into *"]],
+        "test": { "vars": { "file": "notes.txt" }, "expect": "61 70 70 6c 65" }
+      },
+      {
+        "title": "Show the first 16 bytes of a binary",
+        "cmd": "od -A x -t x1 -N 16 <file>",
+        "explain": "An ELF file starts with 7f 45 4c 46 (\\x7f then 'ELF'). Checking the first bytes is a quick way to identify file formats and image headers.",
+        "risk": "read",
+        "options": [["-N 16", "Read only the first 16 bytes"], ["-t x1", "Show 1-byte hex values"]]
+      }
+    ]
+  }
+]

@@ -1,0 +1,372 @@
+[
+  {
+    "id": "uname",
+    "name": "uname",
+    "category": "system",
+    "summary": "Print kernel name, release and machine architecture; see also /etc/os-release for the distribution.",
+    "aliases": ["kernel version", "os version", "os-release", "architecture", "hostnamectl"],
+    "tags": ["kernel version", "distribution", "release", "architecture", "arm", "x86_64", "aarch64", "linux headers"],
+    "man": "uname.1",
+    "docs": [{ "label": "man 5 os-release (man7.org)", "url": "https://man7.org/linux/man-pages/man5/os-release.5.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "/etc/os-release exists on systemd-era distributions and most Yocto/Buildroot images; very old or custom systems may lack it.",
+    "examples": [
+      {
+        "title": "Kernel release",
+        "cmd": "uname -r",
+        "explain": "Prints e.g. 6.8.0-45-generic. Out-of-tree kernel modules must be built against headers for exactly this release (often found under /lib/modules/$(uname -r)/build).",
+        "risk": "read",
+        "options": [["-r", "Kernel release"]],
+        "test": { "expect": "^\\d+\\.\\d+" }
+      },
+      {
+        "title": "Machine architecture",
+        "cmd": "uname -m",
+        "explain": "x86_64 for a typical PC, aarch64 or armv7l on many boards. Binaries must be compiled for this architecture.",
+        "risk": "read",
+        "options": [["-m", "Machine hardware name"]],
+        "test": { "expect": "^(x86_64|aarch64|arm\\w*|i\\d86|riscv64|ppc64le|s390x)$" }
+      },
+      {
+        "title": "Everything in one line",
+        "cmd": "uname -a",
+        "explain": "Kernel name, host name, release, build version and architecture. Good to paste into bug reports.",
+        "risk": "read",
+        "options": [["-a", "All information"]],
+        "test": { "expect": "Linux" }
+      },
+      {
+        "title": "Which distribution and version is this?",
+        "cmd": "cat /etc/os-release",
+        "explain": "NAME, VERSION_ID and ID tell you the distribution (e.g. ubuntu, debian, fedora, poky for Yocto), which decides the package manager to use.",
+        "risk": "read",
+        "test": { "expect": "^ID=" }
+      }
+    ]
+  },
+  {
+    "id": "free",
+    "name": "free",
+    "category": "system",
+    "summary": "Show RAM and swap usage.",
+    "aliases": ["memory usage", "ram", "meminfo"],
+    "tags": ["memory", "ram", "swap", "out of memory", "available memory"],
+    "man": "free.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "procps", "fedora": "procps-ng", "arch": "procps-ng", "alpine": "procps (BusyBox free by default)" } },
+    "compat": "The same data is in /proc/meminfo, which exists on every Linux system including minimal embedded ones.",
+    "examples": [
+      {
+        "title": "Memory in human-readable units",
+        "cmd": "free -h",
+        "explain": "Look at the 'available' column, not 'free'. Linux uses idle RAM as disk cache (buff/cache) and gives it back when programs need it, so low 'free' is normal.",
+        "risk": "read",
+        "options": [["-h", "Human-readable units"]],
+        "test": { "expect": "Mem:", "needs": ["free"] }
+      },
+      {
+        "title": "Raw kernel memory statistics",
+        "cmd": "head -n 5 /proc/meminfo",
+        "explain": "MemTotal, MemFree and MemAvailable in kB, straight from the kernel. Works where free is not installed.",
+        "risk": "read",
+        "test": { "expect": "^MemTotal:" }
+      }
+    ]
+  },
+  {
+    "id": "uptime",
+    "name": "uptime",
+    "category": "system",
+    "summary": "How long the system has been running and its load average; with nproc, judge whether it is overloaded.",
+    "aliases": ["load average", "nproc", "cpu count"],
+    "tags": ["load", "uptime", "busy", "slow", "cpu count", "make -j"],
+    "man": "uptime.1",
+    "docs": [{ "label": "man nproc (man7.org)", "url": "https://man7.org/linux/man-pages/man1/nproc.1.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "procps", "fedora": "procps-ng", "arch": "procps-ng", "alpine": "procps (BusyBox uptime by default)" } },
+    "compat": "Linux load average counts tasks running or waiting for CPU and tasks in uninterruptible I/O wait.",
+    "examples": [
+      {
+        "title": "Uptime and load average",
+        "cmd": "uptime",
+        "explain": "The three numbers are 1, 5 and 15 minute load averages. Compare them with the number of CPUs: on 4 CPUs, a load of 4 means fully busy.",
+        "risk": "read",
+        "test": { "expect": "load average", "needs": ["uptime"] }
+      },
+      {
+        "title": "Number of CPUs available",
+        "cmd": "nproc",
+        "explain": "Commonly used for parallel builds: make -j\"$(nproc)\".",
+        "risk": "read",
+        "test": { "expect": "^\\d+$" }
+      }
+    ]
+  },
+  {
+    "id": "df",
+    "name": "df",
+    "category": "system",
+    "summary": "Show free and used space on mounted file systems.",
+    "aliases": ["disk free", "disk space", "no space left on device"],
+    "tags": ["disk space", "storage", "full disk", "partition", "inodes", "no space left"],
+    "man": "df.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "-h and -i work in BusyBox too.",
+    "examples": [
+      {
+        "title": "All file systems, human-readable",
+        "cmd": "df -h",
+        "explain": "Use% near 100% on / or /home causes 'No space left on device'. tmpfs entries live in RAM.",
+        "risk": "read",
+        "options": [["-h", "Human-readable sizes"]],
+        "test": { "expect": "Filesystem" }
+      },
+      {
+        "title": "Which file system holds this directory?",
+        "cmd": "df -h .",
+        "explain": "Shows only the file system containing the current directory, e.g. before a large Yocto build.",
+        "risk": "read",
+        "test": { "expect": "%" }
+      },
+      {
+        "title": "Check inode usage",
+        "cmd": "df -i",
+        "explain": "A disk can be 'full' because it ran out of inodes (too many small files) while df -h still shows free space.",
+        "risk": "read",
+        "options": [["-i", "Show inode usage instead of blocks"]]
+      }
+    ]
+  },
+  {
+    "id": "du",
+    "name": "du",
+    "category": "system",
+    "summary": "Measure how much disk space directories and files use.",
+    "aliases": ["disk usage", "folder size", "directory size"],
+    "tags": ["disk usage", "size", "large directories", "what uses space", "cleanup"],
+    "man": "du.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "--max-depth is GNU; BusyBox uses -d 1 (GNU also accepts -d).",
+    "examples": [
+      {
+        "title": "Total size of a directory",
+        "cmd": "du -sh <dir>",
+        "explain": "-s gives one summary line instead of listing every subdirectory.",
+        "risk": "read",
+        "options": [["-s", "Summary only"], ["-h", "Human-readable"]],
+        "test": { "vars": { "dir": "big" }, "expect": "^2\\.?\\d*M\\s+big$" }
+      },
+      {
+        "title": "Size of each subdirectory, biggest last",
+        "cmd": "du -h -d 1 <dir> | sort -h",
+        "explain": "Descend one level and sort by size. Repeat inside the biggest entry to drill down to what is using space.",
+        "risk": "read",
+        "options": [["-d 1", "Max depth 1"], ["sort -h", "Sort human-readable sizes"]],
+        "test": { "vars": { "dir": "." }, "expect": "^2\\.\\dM\\s+\\./big$" }
+      }
+    ]
+  },
+  {
+    "id": "lsblk",
+    "name": "lsblk",
+    "category": "system",
+    "summary": "List block devices (disks, SD cards, USB sticks, partitions) as a tree.",
+    "aliases": ["list disks", "sd card", "partitions", "blkid"],
+    "tags": ["disk", "partition", "sd card", "usb stick", "mmcblk", "device name", "filesystem type", "flash image"],
+    "man": "lsblk.8",
+    "install": { "status": "usually-installed", "packages": { "debian": "util-linux", "fedora": "util-linux", "arch": "util-linux", "alpine": "lsblk" } },
+    "compat": "Device names: sdX = SATA/USB disks, nvme0n1 = NVMe, mmcblk0 = SD/eMMC. Names can change between boots and when devices are plugged in.",
+    "examples": [
+      {
+        "title": "Show all disks and partitions",
+        "cmd": "lsblk",
+        "explain": "TYPE disk is a whole device, part a partition. RM 1 marks removable media. Run it before and after inserting an SD card to see which name appears.",
+        "risk": "read"
+      },
+      {
+        "title": "Include file system types and labels",
+        "cmd": "lsblk -f",
+        "explain": "Shows FSTYPE (ext4, vfat...), LABEL, UUID and where each is mounted.",
+        "risk": "read",
+        "options": [["-f", "Show file system information"]]
+      },
+      {
+        "title": "Choose columns, including the device model",
+        "cmd": "lsblk -o NAME,SIZE,TYPE,RM,MODEL,MOUNTPOINT",
+        "explain": "MODEL and SIZE help you be sure which device is the SD card reader before writing an image.",
+        "risk": "read",
+        "options": [["-o", "Comma-separated output columns"]]
+      }
+    ]
+  },
+  {
+    "id": "lscpu",
+    "name": "lscpu",
+    "category": "system",
+    "summary": "Show CPU architecture, model, core count, byte order and cache sizes.",
+    "aliases": ["cpu info", "cpuinfo", "processor"],
+    "tags": ["cpu", "cores", "threads", "architecture", "endianness", "byte order"],
+    "man": "lscpu.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "util-linux", "fedora": "util-linux", "arch": "util-linux", "alpine": "lscpu" } },
+    "compat": "On systems without lscpu, read /proc/cpuinfo; its format differs between x86 and ARM.",
+    "examples": [
+      {
+        "title": "CPU summary",
+        "cmd": "lscpu",
+        "explain": "Check Architecture, Byte Order (little endian on almost all ARM and x86 Linux systems), CPU(s) and Model name.",
+        "risk": "read",
+        "test": { "expect": "Architecture:", "needs": ["lscpu"] }
+      },
+      {
+        "title": "Raw per-CPU information from the kernel",
+        "cmd": "head -n 25 /proc/cpuinfo",
+        "explain": "On ARM boards this often includes Hardware/Revision lines identifying the SoC.",
+        "risk": "read",
+        "test": { "expect": "processor" }
+      }
+    ]
+  },
+  {
+    "id": "mount",
+    "name": "mount",
+    "category": "system",
+    "summary": "Attach (mount) and detach (umount) file systems; findmnt shows what is mounted where.",
+    "aliases": ["umount", "findmnt", "unmount", "mount usb", "mount sd card"],
+    "tags": ["mount", "unmount", "usb", "sd card", "device busy", "file system", "mount point"],
+    "man": "mount.8",
+    "docs": [{ "label": "man findmnt (man7.org)", "url": "https://man7.org/linux/man-pages/man8/findmnt.8.html" }, { "label": "man umount (man7.org)", "url": "https://man7.org/linux/man-pages/man8/umount.8.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "mount (findmnt: util-linux)", "fedora": "util-linux", "arch": "util-linux", "alpine": "util-linux (BusyBox mount by default)" } },
+    "compat": "Desktop environments usually auto-mount removable media under /media or /run/media. 'target is busy' on umount means a process (or a shell sitting in that directory) still uses it; check with lsof.",
+    "examples": [
+      {
+        "title": "Which mount contains this directory?",
+        "cmd": "findmnt -T .",
+        "explain": "Shows the source device, file system type and mount options (e.g. ro = read-only).",
+        "risk": "read",
+        "options": [["-T", "Find the mount containing this path"]],
+        "test": { "expect": "TARGET", "needs": ["findmnt"] }
+      },
+      {
+        "title": "Mount a partition on an empty directory",
+        "cmd": "sudo mount <partition> <mount-point>",
+        "explain": "<partition> is a device such as /dev/sdb1 (find it with lsblk); <mount-point> is an existing empty directory. The file system type is usually detected automatically.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Mounting on a non-empty directory hides its contents until unmounted. Make sure you picked the right partition with lsblk -f.",
+        "options": [["<partition>", "Block device, e.g. /dev/sdb1"], ["<mount-point>", "Existing directory to attach it to"]]
+      },
+      {
+        "title": "Unmount before removing the card",
+        "cmd": "sudo umount <mount-point>",
+        "explain": "Flushes pending writes and detaches the file system. Always unmount before pulling an SD card or USB stick, or data may be lost.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Programs using files on that mount lose access. Do not use lazy/force options unless you understand the consequences."
+      }
+    ]
+  },
+  {
+    "id": "lsusb",
+    "name": "lsusb",
+    "category": "system",
+    "summary": "List USB devices with their vendor and product IDs.",
+    "aliases": ["usb devices", "usb-devices"],
+    "tags": ["usb", "vendor id", "product id", "device detected", "serial adapter", "driver"],
+    "man": "lsusb.8",
+    "docs": [{ "label": "usbutils project", "url": "https://github.com/gregkh/usbutils" }],
+    "install": { "status": "often-missing", "packages": { "debian": "usbutils", "fedora": "usbutils", "arch": "usbutils", "alpine": "usbutils" } },
+    "compat": "Inside WSL, containers or VMs, USB devices are only visible if passed through to that environment.",
+    "examples": [
+      {
+        "title": "List connected USB devices",
+        "cmd": "lsusb",
+        "explain": "Each line shows bus, device number and ID vendor:product (e.g. 0403:6001 is a common FTDI serial adapter). If your device is missing, it is a cable, power or hardware problem rather than a driver one.",
+        "risk": "read"
+      },
+      {
+        "title": "Tree view with the driver bound to each interface",
+        "cmd": "lsusb -t",
+        "explain": "Driver=... shows which kernel driver claimed each interface; Driver=[none] means no driver matched.",
+        "risk": "read",
+        "options": [["-t", "Tree of the USB hierarchy"]]
+      },
+      {
+        "title": "Detailed descriptors for one device",
+        "cmd": "lsusb -v -d <vendor-id>:<product-id>",
+        "explain": "Prints the full descriptors (interfaces, endpoints) that a USB driver matches against. Some fields need root to read and show as warnings otherwise.",
+        "risk": "read",
+        "options": [["-v", "Verbose descriptors"], ["-d", "Select device by vendor:product ID"]]
+      }
+    ]
+  },
+  {
+    "id": "lspci",
+    "name": "lspci",
+    "category": "system",
+    "summary": "List PCI/PCIe devices and the kernel driver that is using each one.",
+    "aliases": ["pci devices", "graphics card", "network card"],
+    "tags": ["pci", "pcie", "driver in use", "kernel driver", "hardware", "vendor id"],
+    "man": "lspci.8",
+    "docs": [{ "label": "pciutils project", "url": "https://mj.ucw.cz/sw/pciutils/" }],
+    "install": { "status": "often-missing", "packages": { "debian": "pciutils", "fedora": "pciutils", "arch": "pciutils", "alpine": "pciutils" } },
+    "compat": "Many ARM boards have no PCI bus at all; their devices are described by the device tree instead.",
+    "examples": [
+      {
+        "title": "List PCI devices",
+        "cmd": "lspci",
+        "explain": "Each line: bus address, device class (e.g. Ethernet controller) and name.",
+        "risk": "read"
+      },
+      {
+        "title": "Show which driver handles each device",
+        "cmd": "lspci -k",
+        "explain": "'Kernel driver in use' is the bound driver; 'Kernel modules' lists drivers that could handle it. A device with no driver in use explains a missing network or Wi-Fi interface.",
+        "risk": "read",
+        "options": [["-k", "Show kernel drivers"]]
+      },
+      {
+        "title": "Show numeric vendor and device IDs",
+        "cmd": "lspci -nn",
+        "explain": "IDs like [8086:15b8] are what a driver's PCI ID table matches.",
+        "risk": "read",
+        "options": [["-nn", "Show both names and numeric IDs"]]
+      }
+    ]
+  },
+  {
+    "id": "dd",
+    "name": "dd",
+    "category": "system",
+    "summary": "Copy raw bytes between files and devices; used to create test files and to write disk images to SD cards.",
+    "aliases": ["flash image", "write sd card", "disk image", "raw copy"],
+    "tags": ["flash", "sd card", "image", "wic", "raw", "block device", "test file", "yocto image"],
+    "man": "dd.1",
+    "docs": [{ "label": "GNU coreutils: dd invocation", "url": "https://www.gnu.org/software/coreutils/manual/html_node/dd-invocation.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "status=progress and conv=fsync are GNU options; BusyBox dd supports conv=fsync but not status=progress. Tools such as bmaptool (for Yocto .wic images) are faster and add checks.",
+    "examples": [
+      {
+        "title": "Create a 10 MiB test file of zeros",
+        "cmd": "dd if=/dev/zero of=test.bin bs=1M count=10",
+        "explain": "if = input file, of = output file, bs = block size, count = number of blocks. Prints records in/out and the transfer rate when finished.",
+        "risk": "modify",
+        "warning": "of= is overwritten without asking. Use a new file name.",
+        "options": [["if=", "Input file"], ["of=", "Output file"], ["bs=1M", "Block size 1 MiB"], ["count=10", "Copy 10 blocks"]],
+        "test": { "after": "stat -c %s test.bin", "expect": "^10485760$" }
+      },
+      {
+        "title": "Identify the SD card before writing anything",
+        "cmd": "lsblk -o NAME,SIZE,TYPE,RM,MODEL,MOUNTPOINT",
+        "explain": "Inspect-first: note the device list, insert the card, run it again. The new disk (e.g. sdb or mmcblk0) with the size of your card is the target. Unmount its partitions before writing.",
+        "risk": "read"
+      },
+      {
+        "title": "Write an image to an SD card",
+        "cmd": "sudo dd if=<image-file> of=/dev/<device> bs=4M status=progress conv=fsync",
+        "explain": "<device> is the whole disk (sdb, mmcblk0), not a partition (sdb1). conv=fsync makes sure data reaches the card before dd exits.",
+        "risk": "destructive",
+        "root": true,
+        "warning": "This overwrites the ENTIRE target device with no confirmation. Choosing the wrong device (for example your system disk) destroys it. Triple-check <device> with lsblk, and unplug other external drives.",
+        "options": [["if=", "Image file to read"], ["of=/dev/<device>", "Whole target device"], ["bs=4M", "Copy in 4 MiB blocks (faster)"], ["status=progress", "Show progress (GNU)"], ["conv=fsync", "Flush to the device before exiting"]]
+      }
+    ]
+  }
+]

@@ -1,0 +1,199 @@
+[
+  {
+    "id": "tar",
+    "name": "tar",
+    "category": "archives",
+    "summary": "Pack directories into a single archive (optionally compressed), list archives, and unpack them.",
+    "aliases": ["tarball", "tar.gz", "tgz", "tar.xz", "extract", "untar", "compress folder"],
+    "tags": ["archive", "compress", "extract", "unpack", "backup", "tar.gz", "tar.xz", "source tarball", "rootfs"],
+    "man": "tar.1",
+    "docs": [{ "label": "GNU tar manual", "url": "https://www.gnu.org/software/tar/manual/tar.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "tar", "fedora": "tar", "arch": "tar", "alpine": "tar (BusyBox tar by default)" } },
+    "compat": "Letters: c create, t list, x extract, f archive file name (must be followed by the name), z gzip, J xz, v verbose. GNU and BusyBox tar both auto-detect compression when extracting with just -xf.",
+    "examples": [
+      {
+        "title": "Create a gzip-compressed archive of a directory",
+        "cmd": "tar -czf <archive>.tar.gz <dir>",
+        "explain": "The archive file name comes right after f. Paths inside the archive are stored relative to how you named <dir>.",
+        "risk": "modify",
+        "warning": "An existing file with the archive's name is overwritten.",
+        "options": [["-c", "Create a new archive"], ["-z", "Compress with gzip"], ["-f", "Archive file name follows"]],
+        "test": { "vars": { "archive": "src-backup", "dir": "src" }, "after": "tar -tzf src-backup.tar.gz", "expect": "src/hello\\.c" }
+      },
+      {
+        "title": "List the contents before extracting",
+        "cmd": "tar -tvf <archive>",
+        "explain": "Inspect-first: see whether everything is inside one top-level directory or would be scattered into your current directory, and spot absolute or ../ paths.",
+        "risk": "read",
+        "options": [["-t", "List contents"], ["-v", "Verbose: permissions, sizes, dates"]],
+        "test": { "before": "tar -czf s.tar.gz src", "vars": { "archive": "s.tar.gz" }, "expect": "src/Makefile" }
+      },
+      {
+        "title": "Extract into a chosen directory",
+        "cmd": "tar -xf <archive> -C <dest-dir>",
+        "explain": "-C changes into <dest-dir> (which must exist) before extracting, keeping your current directory tidy.",
+        "risk": "modify",
+        "warning": "Files in <dest-dir> with the same paths as archive members are overwritten. Extract unknown archives into a new empty directory.",
+        "options": [["-x", "Extract"], ["-C", "Change to this directory first"]],
+        "test": { "before": "tar -czf s.tar.gz src && mkdir out", "vars": { "archive": "s.tar.gz", "dest-dir": "out" }, "after": "ls out/src", "expect": "hello\\.c" }
+      },
+      {
+        "title": "Create an xz-compressed archive",
+        "cmd": "tar -cJf <archive>.tar.xz <dir>",
+        "explain": "xz compresses better than gzip but is slower. Kernel and many source releases ship as .tar.xz.",
+        "risk": "modify",
+        "warning": "An existing file with the archive's name is overwritten.",
+        "options": [["-J", "Compress with xz"]],
+        "test": { "vars": { "archive": "src-backup", "dir": "src" }, "after": "tar -tJf src-backup.tar.xz", "expect": "src/hello\\.c", "needs": ["xz"] }
+      }
+    ]
+  },
+  {
+    "id": "gzip",
+    "name": "gzip",
+    "category": "archives",
+    "summary": "Compress or decompress single files (.gz); zcat reads them without unpacking.",
+    "aliases": ["gunzip", "zcat", ".gz"],
+    "tags": ["compress", "decompress", "gz", "logs", "zcat", "config.gz"],
+    "man": "gzip.1", "manSite": "debian",
+    "install": { "status": "usually-installed", "packages": { "debian": "gzip", "fedora": "gzip", "arch": "gzip", "alpine": "gzip (BusyBox gzip by default)" } },
+    "compat": "gzip compresses individual files, not directories; use tar for directories. -k is supported by GNU gzip 1.6+ and BusyBox.",
+    "examples": [
+      {
+        "title": "Compress a file but keep the original",
+        "cmd": "gzip -k <file>",
+        "explain": "Creates <file>.gz. Without -k, gzip deletes the original after compressing it.",
+        "risk": "modify",
+        "options": [["-k", "Keep the input file"]],
+        "test": { "vars": { "file": "notes.txt" }, "after": "ls notes.txt notes.txt.gz", "expect": "notes\\.txt\\nnotes\\.txt\\.gz" }
+      },
+      {
+        "title": "Read a compressed file without unpacking it",
+        "cmd": "zcat <file>.gz | less",
+        "explain": "Rotated logs (/var/log/*.gz) and the kernel config (/proc/config.gz, when enabled) are gzip files.",
+        "risk": "read"
+      },
+      {
+        "title": "Decompress",
+        "cmd": "gunzip <file>.gz",
+        "explain": "Restores <file> and removes the .gz (add -k to keep it).",
+        "risk": "modify",
+        "warning": "Refuses to overwrite an existing <file> unless forced; read the prompt."
+      }
+    ]
+  },
+  {
+    "id": "xz",
+    "name": "xz",
+    "category": "archives",
+    "summary": "High-ratio compression for single files (.xz), common for kernel sources and disk images.",
+    "aliases": ["unxz", "xzcat", ".xz"],
+    "tags": ["compress", "decompress", "xz", "image", "wic.xz", "img.xz"],
+    "man": "xz.1", "manSite": "debian",
+    "docs": [{ "label": "XZ Utils project", "url": "https://tukaani.org/xz/" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "xz-utils", "fedora": "xz", "arch": "xz", "alpine": "xz" } },
+    "compat": "-T0 (use all CPU cores) is supported by XZ Utils 5.2+.",
+    "examples": [
+      {
+        "title": "Decompress a downloaded image, keeping the .xz",
+        "cmd": "xz -dk <file>.xz",
+        "explain": "-d decompresses, -k keeps the compressed file in case you need it again.",
+        "risk": "modify",
+        "options": [["-d", "Decompress"], ["-k", "Keep the input file"]]
+      },
+      {
+        "title": "Compress using all CPU cores",
+        "cmd": "xz -k -T0 <file>",
+        "explain": "Creates <file>.xz and keeps the original.",
+        "risk": "modify",
+        "options": [["-T0", "Use as many threads as there are cores"], ["-k", "Keep the input file"]],
+        "test": { "vars": { "file": "notes.txt" }, "after": "xz -l notes.txt.xz", "expect": "notes\\.txt\\.xz", "needs": ["xz"] }
+      },
+      {
+        "title": "Show compressed and uncompressed size",
+        "cmd": "xz -l <file>.xz",
+        "explain": "Useful to know how much space an image needs before decompressing it.",
+        "risk": "read",
+        "options": [["-l", "List information about .xz files"]]
+      }
+    ]
+  },
+  {
+    "id": "zip",
+    "name": "zip",
+    "category": "archives",
+    "summary": "Create .zip archives, the format most easily opened on Windows and macOS.",
+    "aliases": ["compress folder zip"],
+    "tags": ["zip", "archive", "windows", "share files"],
+    "man": "zip.1", "manSite": "debian",
+    "docs": [{ "label": "Info-ZIP project", "url": "https://infozip.sourceforge.net/" }],
+    "install": { "status": "often-missing", "packages": { "debian": "zip", "fedora": "zip", "arch": "zip", "alpine": "zip" } },
+    "compat": "zip does not preserve Unix ownership the way tar does; prefer tar for Linux-to-Linux transfers.",
+    "examples": [
+      {
+        "title": "Zip a directory recursively",
+        "cmd": "zip -r <archive>.zip <dir>",
+        "explain": "-r includes everything below <dir>. If the zip exists, files are added or updated in it.",
+        "risk": "modify",
+        "options": [["-r", "Recurse into directories"]],
+        "test": { "vars": { "archive": "src", "dir": "src" }, "after": "unzip -l src.zip", "expect": "src/hello\\.c", "needs": ["zip", "unzip"] }
+      }
+    ]
+  },
+  {
+    "id": "unzip",
+    "name": "unzip",
+    "category": "archives",
+    "summary": "List and extract .zip archives.",
+    "aliases": ["extract zip"],
+    "tags": ["zip", "extract", "unpack"],
+    "man": "unzip.1", "manSite": "debian",
+    "docs": [{ "label": "Info-ZIP project", "url": "https://infozip.sourceforge.net/" }],
+    "install": { "status": "often-missing", "packages": { "debian": "unzip", "fedora": "unzip", "arch": "unzip", "alpine": "unzip (BusyBox unzip by default)" } },
+    "compat": "When a file already exists, unzip asks whether to replace it unless -o (overwrite) or -n (never) is given.",
+    "examples": [
+      {
+        "title": "List the contents first",
+        "cmd": "unzip -l <archive>.zip",
+        "explain": "Check whether the files sit inside a folder or would be spread into the current directory.",
+        "risk": "read",
+        "options": [["-l", "List contents"]]
+      },
+      {
+        "title": "Extract into a new directory",
+        "cmd": "unzip <archive>.zip -d <dest-dir>",
+        "explain": "-d creates <dest-dir> if needed and extracts there.",
+        "risk": "modify",
+        "options": [["-d", "Destination directory"]]
+      }
+    ]
+  },
+  {
+    "id": "sha256sum",
+    "name": "sha256sum",
+    "category": "archives",
+    "summary": "Compute and verify SHA-256 checksums, to confirm a download or image is intact.",
+    "aliases": ["checksum", "md5sum", "hash", "verify download"],
+    "tags": ["checksum", "verify", "integrity", "download", "image", "hash"],
+    "man": "sha256sum.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "Same usage for md5sum, sha1sum and sha512sum. MD5 and SHA-1 detect accidental corruption but are not secure against deliberate tampering.",
+    "examples": [
+      {
+        "title": "Print a file's checksum",
+        "cmd": "sha256sum <file>",
+        "explain": "Compare the 64 hex characters with the value published next to the download.",
+        "risk": "read",
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^[0-9a-f]{64}  notes\\.txt$" }
+      },
+      {
+        "title": "Verify files against a checksum list",
+        "cmd": "sha256sum -c <checksums-file>",
+        "explain": "Each line of the list is 'hash  filename'. Prints OK or FAILED per file and exits non-zero if any fail. Lines for files you did not download show as missing; add --ignore-missing (GNU) to skip them.",
+        "risk": "read",
+        "options": [["-c", "Check hashes listed in the file"]],
+        "test": { "before": "sha256sum notes.txt data.csv > SHA256SUMS", "vars": { "checksums-file": "SHA256SUMS" }, "expect": "notes\\.txt: OK\\ndata\\.csv: OK" }
+      }
+    ]
+  }
+]

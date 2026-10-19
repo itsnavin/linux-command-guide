@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Searchable Linux command reference with explained examples, task walkthroughs and safety labels. Static, no tracking.">
+  <meta name="color-scheme" content="light dark">
+  <title>Linux Command Guide</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/styles.css">
+  <script type="module" src="src/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#/"><span class="brand-prompt" aria-hidden="true">$_</span> Linux Command Guide</a>
+      <nav aria-label="Main">
+        <ul class="nav-list">
+          <li><a href="#/" data-nav="home">Commands</a></li>
+          <li><a href="#/guides" data-nav="guides">Guides</a></li>
+          <li><a href="#/about" data-nav="about">About &amp; safety</a></li>
+        </ul>
+      </nav>
+      <form class="search-form" role="search" id="search-form">
+        <label for="search" class="visually-hidden">Search commands and tasks</label>
+        <input id="search" type="search" autocomplete="off" spellcheck="false"
+               placeholder="Search: command or task, e.g. “find large files”" aria-describedby="search-hint">
+        <label for="category" class="visually-hidden">Category</label>
+        <select id="category">
+          <option value="">All categories</option>
+        </select>
+        <span id="search-hint" class="search-hint">Press <kbd>/</kbd> to search, <kbd>Esc</kbd> to clear</span>
+      </form>
+    </div>
+  </header>
+  <main id="main" tabindex="-1">
+    <p class="loading" id="loading">Loading the command catalog…</p>
+    <noscript><p class="notice">This guide needs JavaScript to search and display the catalog. The raw data is in the <code>data/</code> folder of the repository.</p></noscript>
+  </main>
+  <div id="live" class="visually-hidden" role="status" aria-live="polite"></div>
+  <footer class="site-footer">
+    <p>Original, curated content. Commands are shown for you to read and copy — nothing runs in your browser. Always check targets before running anything. <a href="#/about">Sources, license &amp; safety</a></p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,186 @@
+[
+  {
+    "id": "find",
+    "name": "find",
+    "category": "search",
+    "summary": "Search a directory tree for files by name, type, size, age or owner, and optionally act on them.",
+    "aliases": ["search files", "locate file", "large files", "find big files"],
+    "tags": ["search", "name", "size", "large files", "big files", "recently modified", "old files", "extension", "disk space", "exec"],
+    "man": "find.1",
+    "docs": [{ "label": "GNU findutils manual", "url": "https://www.gnu.org/software/findutils/manual/find.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "findutils", "fedora": "findutils", "arch": "findutils", "alpine": "findutils" }, "note": "BusyBox find supports the common tests (-name, -type, -size, -mtime, -exec)." },
+    "compat": "Tests are evaluated left to right, and order matters. -print0, -delete and -iname are GNU/BusyBox extensions rather than strict POSIX.",
+    "examples": [
+      {
+        "title": "Find files by name pattern",
+        "cmd": "find . -name '*.c'",
+        "explain": "Searches from the current directory (.) downward. Quote the pattern: unquoted, the shell would expand *.c in the current directory before find ever sees it.",
+        "risk": "read",
+        "options": [[".", "Start directory"], ["-name", "Match the file name against a shell pattern (case-sensitive; -iname ignores case)"]],
+        "test": { "expect": "\\./src/hello\\.c" }
+      },
+      {
+        "title": "Find files larger than 1 MiB",
+        "cmd": "find . -type f -size +1M",
+        "explain": "+1M means more than 1 MiB, -1M less than. Units: k (KiB), M (MiB), G (GiB). Note find rounds sizes up to whole units.",
+        "risk": "read",
+        "options": [["-type f", "Regular files only (d = directories, l = symlinks)"], ["-size +1M", "Larger than 1 MiB"]],
+        "test": { "expect": "\\./big/data\\.bin" }
+      },
+      {
+        "title": "Large files on the whole root file system, hiding permission errors",
+        "cmd": "find / -xdev -type f -size +100M -exec ls -lh {} + 2>/dev/null",
+        "explain": "-xdev stays on one file system (skips /proc, /sys and other mounts). -exec ls -lh {} + lists the matches with sizes. 2>/dev/null discards error messages such as 'Permission denied' for directories you cannot read; results you are allowed to see still print.",
+        "risk": "read",
+        "options": [["-xdev", "Do not descend into other mounted file systems"], ["-exec ... {} +", "Run a command with the found paths as arguments"], ["2>/dev/null", "Send standard error (file descriptor 2) to the bit bucket"]]
+      },
+      {
+        "title": "Files modified in the last 24 hours",
+        "cmd": "find . -type f -mtime -1",
+        "explain": "-mtime counts whole days: -1 means less than one day ago, +7 means more than seven days ago. Use -mmin -30 for the last 30 minutes.",
+        "risk": "read",
+        "options": [["-mtime -1", "Modified less than 1 day ago"]],
+        "test": { "expect": "notes\\.txt" }
+      },
+      {
+        "title": "Search inside matching files",
+        "cmd": "find . -type f -name '*.c' -exec grep -l 'main' {} +",
+        "explain": "Runs grep -l on batches of .c files and prints the names of files containing main. {} is replaced by the file names; + passes many at once.",
+        "risk": "read",
+        "options": [["-exec ... {} +", "Run a command on the found files, batched"]],
+        "test": { "expect": "hello\\.c" }
+      },
+      {
+        "title": "Delete build objects after previewing them",
+        "cmd": "find <build-dir> -type f -name '*.o' -delete",
+        "explain": "Run the same command without -delete first and read the list. Only add -delete when the list is exactly what you want gone.",
+        "risk": "destructive",
+        "warning": "-delete removes files permanently and must be the LAST test. Placed before -name, it deletes everything find visits.",
+        "options": [["-delete", "Delete each matching file (implies -depth)"]]
+      }
+    ]
+  },
+  {
+    "id": "grep",
+    "name": "grep",
+    "category": "search",
+    "summary": "Search text for lines matching a pattern: in files, whole source trees, or command output.",
+    "aliases": ["search text", "search in files", "egrep", "find text"],
+    "tags": ["search", "pattern", "regex", "recursive", "source code", "log errors", "filter lines", "exclude"],
+    "man": "grep.1",
+    "docs": [{ "label": "GNU grep manual", "url": "https://www.gnu.org/software/grep/manual/grep.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "grep", "fedora": "grep", "arch": "grep", "alpine": "grep" }, "note": "BusyBox grep supports -r -n -i -v -E -w -c -l." },
+    "compat": "Exit status: 0 = a line matched, 1 = no match, 2 = error. That is why grep in a script or pipeline can 'fail' simply because nothing matched.",
+    "examples": [
+      {
+        "title": "Show matching lines with line numbers",
+        "cmd": "grep -n 'error' <file>",
+        "explain": "Single quotes keep the shell from interpreting characters such as $ * [ in the pattern.",
+        "risk": "read",
+        "options": [["-n", "Prefix each match with its line number"]],
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^6:error" }
+      },
+      {
+        "title": "Search a source tree recursively",
+        "cmd": "grep -rn 'TODO' .",
+        "explain": "Searches every file below the current directory and prints file:line:text. Add -I to skip binary files.",
+        "risk": "read",
+        "options": [["-r", "Recurse into directories"], ["-n", "Show line numbers"]],
+        "test": { "expect": "notes\\.txt:4:TODO" }
+      },
+      {
+        "title": "Only search C source and header files",
+        "cmd": "grep -rn --include='*.[ch]' 'module_init' <dir>",
+        "explain": "--include limits the search to matching file names, which is much faster in a kernel or Yocto tree.",
+        "risk": "read",
+        "options": [["--include", "Only search files whose name matches the pattern (GNU)"]]
+      },
+      {
+        "title": "Case-insensitive search for several words",
+        "cmd": "grep -iE 'error|fail|timeout' <file>",
+        "explain": "-E enables extended regular expressions, where | means OR. -i ignores upper/lower case.",
+        "risk": "read",
+        "options": [["-i", "Ignore case"], ["-E", "Extended regex: | + ? ( ) without backslashes"]],
+        "test": { "vars": { "file": "logs/app.log" }, "expect": "ERROR timeout" }
+      },
+      {
+        "title": "Hide comments and blank lines in a config file",
+        "cmd": "grep -vE '^\\s*(#|$)' <file>",
+        "explain": "-v inverts the match: print lines that do NOT match. The pattern matches lines that are empty or start with #.",
+        "risk": "read",
+        "options": [["-v", "Invert: print non-matching lines"]]
+      },
+      {
+        "title": "Search for a pattern that starts with a dash",
+        "cmd": "grep -n -- '-Wall' <file>",
+        "explain": "Without --, grep would try to interpret -Wall as its own options. -- marks the end of options.",
+        "risk": "read",
+        "options": [["--", "End of options"]],
+        "test": { "vars": { "file": "src/Makefile" }, "expect": "-Wall" }
+      }
+    ]
+  },
+  {
+    "id": "xargs",
+    "name": "xargs",
+    "category": "search",
+    "summary": "Turn a list of names coming from a pipe into command-line arguments for another command.",
+    "aliases": ["arguments from pipe"],
+    "tags": ["pipe", "arguments", "batch", "find", "spaces in file names", "null separated"],
+    "man": "xargs.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "findutils", "fedora": "findutils", "arch": "findutils", "alpine": "findutils" } },
+    "compat": "-0 and -I are supported by GNU and BusyBox. Without -0, names containing spaces or quotes are split incorrectly.",
+    "examples": [
+      {
+        "title": "Safely pass found files to another command",
+        "cmd": "find . -name '*.txt' -print0 | xargs -0 ls -l",
+        "explain": "-print0 and -0 separate names with a NUL byte, so a file called 'file with spaces.txt' stays one argument.",
+        "risk": "read",
+        "options": [["-print0", "find: end each name with NUL instead of newline"], ["-0", "xargs: input items are NUL-separated"]],
+        "test": { "expect": "file with spaces\\.txt" }
+      },
+      {
+        "title": "Count lines in every C file",
+        "cmd": "find . -name '*.c' -print0 | xargs -0 wc -l",
+        "explain": "xargs runs wc -l with as many file names as fit on one command line and prints a total.",
+        "risk": "read",
+        "test": { "expect": "hello\\.c" }
+      },
+      {
+        "title": "Print each command before running it",
+        "cmd": "printf '%s\\n' one two | xargs -t -I{} echo item {}",
+        "explain": "-I{} runs the command once per input line, replacing {}; -t prints each command to stderr first, which makes xargs behaviour visible.",
+        "risk": "read",
+        "options": [["-I{}", "Replace {} with each input line, one command per line"], ["-t", "Print each command before executing it"]],
+        "test": { "expect": "^item one$[\\s\\S]*^item two$" }
+      }
+    ]
+  },
+  {
+    "id": "which",
+    "name": "which",
+    "category": "search",
+    "summary": "Show the full path of the program that runs when you type a command name.",
+    "aliases": ["whereis", "path of command", "locate program"],
+    "tags": ["path", "program location", "which gcc", "cross compiler"],
+    "man": "which.1", "manSite": "debian",
+    "install": { "status": "often-missing", "packages": { "debian": "debianutils", "fedora": "which", "arch": "which", "alpine": "busybox" }, "note": "Missing from some minimal images (e.g. Fedora containers). command -v is a builtin that always works." },
+    "compat": "which only searches PATH; it does not know about aliases, functions or builtins. Use type -a to see everything.",
+    "examples": [
+      {
+        "title": "Find which gcc you are using",
+        "cmd": "which gcc",
+        "explain": "Prints a path such as /usr/bin/gcc. With several toolchains installed (host gcc vs a cross gcc from an SDK) this tells you which one PATH selects. Exit status is non-zero if nothing is found.",
+        "risk": "read",
+        "test": { "expect": "/gcc$", "needs": ["which", "gcc"] }
+      },
+      {
+        "title": "List every match in PATH",
+        "cmd": "which -a python3",
+        "explain": "Shows all copies in PATH order; the first one wins.",
+        "risk": "read",
+        "options": [["-a", "Print all matches, not just the first"]]
+      }
+    ]
+  }
+]

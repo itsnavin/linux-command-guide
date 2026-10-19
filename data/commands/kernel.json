@@ -1,0 +1,168 @@
+[
+  {
+    "id": "lsmod",
+    "name": "lsmod",
+    "category": "kernel",
+    "summary": "List the kernel modules (drivers) currently loaded.",
+    "aliases": ["loaded modules", "loaded drivers", "/proc/modules"],
+    "tags": ["kernel", "module", "driver", "loaded", ".ko", "lsmod"],
+    "man": "lsmod.8",
+    "install": { "status": "usually-installed", "packages": { "debian": "kmod", "fedora": "kmod", "arch": "kmod", "alpine": "kmod (BusyBox lsmod by default)" } },
+    "compat": "Reads /proc/modules; no root needed. Drivers built into the kernel (=y in the config) never appear here, even though they are active. Containers and WSL show the host or WSL kernel's modules.",
+    "examples": [
+      {
+        "title": "Is my module loaded?",
+        "cmd": "lsmod | grep <module>",
+        "explain": "Module names use underscores in lsmod even if the file name has dashes.",
+        "risk": "read",
+        "output": "Columns: Module, Size (bytes), 'Used by' count and the modules using it. A non-zero count means it cannot be removed until users go away."
+      },
+      {
+        "title": "List all loaded modules",
+        "cmd": "lsmod",
+        "explain": "Shows every module loaded right now, newest first.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "modinfo",
+    "name": "modinfo",
+    "category": "kernel",
+    "summary": "Show a kernel module's metadata: file path, description, license, parameters, aliases.",
+    "aliases": ["module info", "module parameters"],
+    "tags": ["kernel", "module", "driver", "parameters", "license", "vermagic", ".ko", "alias"],
+    "man": "modinfo.8",
+    "install": { "status": "usually-installed", "packages": { "debian": "kmod", "fedora": "kmod", "arch": "kmod", "alpine": "kmod" } },
+    "compat": "Given a name, looks under /lib/modules/$(uname -r)/; given a path, reads that .ko file. No root needed.",
+    "examples": [
+      {
+        "title": "Show metadata of an installed module",
+        "cmd": "modinfo <module>",
+        "explain": "Try a common one such as modinfo usbcore or modinfo loop (if built as a module).",
+        "risk": "read",
+        "output": "filename = the .ko on disk; parm = parameters you can set; alias = device IDs that auto-load it; vermagic = kernel version it was built for. 'not found' means it is not installed as a module (maybe built in, or for another kernel)."
+      },
+      {
+        "title": "Inspect a module file you built",
+        "cmd": "modinfo ./<module>.ko",
+        "explain": "Check vermagic matches uname -r before trying to load it; a mismatch causes 'Invalid module format'.",
+        "risk": "read"
+      },
+      {
+        "title": "Show only one field",
+        "cmd": "modinfo -F vermagic ./<module>.ko",
+        "explain": "-F prints a single field, handy in scripts.",
+        "risk": "read",
+        "options": [["-F", "Only print this field"]]
+      }
+    ]
+  },
+  {
+    "id": "modprobe",
+    "name": "modprobe",
+    "category": "kernel",
+    "summary": "Load or unload an installed kernel module together with its dependencies.",
+    "aliases": ["load module", "load driver", "unload module"],
+    "tags": ["kernel", "module", "driver", "load", "unload", "dependencies", "parameters"],
+    "man": "modprobe.8",
+    "install": { "status": "usually-installed", "packages": { "debian": "kmod", "fedora": "kmod", "arch": "kmod", "alpine": "kmod" } },
+    "compat": "Works with modules installed under /lib/modules/$(uname -r)/ (after depmod). For a .ko in your build directory, use insmod. Secure Boot may refuse unsigned modules.",
+    "examples": [
+      {
+        "title": "Preview what would be loaded",
+        "cmd": "modprobe -n -v <module>",
+        "explain": "Dry run (inspect-first): prints the insmod steps, including dependencies, without loading anything.",
+        "risk": "read",
+        "options": [["-n", "Dry run"], ["-v", "Verbose"]]
+      },
+      {
+        "title": "Load a module",
+        "cmd": "sudo modprobe <module>",
+        "explain": "Loads dependencies first. Check dmesg afterwards for the driver's messages.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Runs kernel code as root. A buggy or wrong module can freeze or crash the whole machine; practise on a VM or test board, and save your work first."
+      },
+      {
+        "title": "Unload a module",
+        "cmd": "sudo modprobe -r <module>",
+        "explain": "Fails with 'in use' if something still uses it (see lsmod's Used by column).",
+        "risk": "destructive",
+        "root": true,
+        "warning": "Removing a driver in use (disk, network, display, input) can cut off storage, connectivity or your session. Only unload modules you loaded for testing.",
+        "options": [["-r", "Remove (unload)"]]
+      }
+    ]
+  },
+  {
+    "id": "insmod",
+    "name": "insmod",
+    "category": "kernel",
+    "summary": "Load a specific .ko file, typically your own freshly built driver.",
+    "aliases": ["load ko", "test driver"],
+    "tags": ["kernel", "module", "driver", ".ko", "load", "development", "hello world module"],
+    "man": "insmod.8",
+    "install": { "status": "usually-installed", "packages": { "debian": "kmod", "fedora": "kmod", "arch": "kmod", "alpine": "kmod (BusyBox insmod by default)" } },
+    "compat": "insmod does not load dependencies (modprobe does). The .ko must be built against the running kernel's headers: check modinfo -F vermagic vs uname -r.",
+    "examples": [
+      {
+        "title": "Load your module with a parameter",
+        "cmd": "sudo insmod ./<module>.ko <param>=<value>",
+        "explain": "Then check sudo dmesg | tail for your init function's messages and lsmod | grep <module>.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Your module runs in the kernel with no protection: a NULL pointer or infinite loop can oops, hang or panic the system. Use a VM or test board, not the machine you depend on.",
+        "output": "'Invalid module format' = built for another kernel version/architecture; 'File exists' = already loaded; 'Unknown symbol' (see dmesg) = missing dependency or license mismatch; 'Operation not permitted' = not root or Secure Boot lockdown."
+      }
+    ]
+  },
+  {
+    "id": "rmmod",
+    "name": "rmmod",
+    "category": "kernel",
+    "summary": "Unload a kernel module by name.",
+    "aliases": ["unload ko", "remove module"],
+    "tags": ["kernel", "module", "driver", "unload", "exit function"],
+    "man": "rmmod.8",
+    "install": { "status": "usually-installed", "packages": { "debian": "kmod", "fedora": "kmod", "arch": "kmod", "alpine": "kmod (BusyBox rmmod by default)" } },
+    "compat": "Takes the module name (as shown by lsmod), not the .ko path, although kmod also accepts a path.",
+    "examples": [
+      {
+        "title": "Unload your test module",
+        "cmd": "sudo rmmod <module>",
+        "explain": "Calls your module's exit function; check dmesg for its messages.",
+        "risk": "destructive",
+        "root": true,
+        "warning": "Only unload modules you loaded for testing. Removing drivers for hardware in use can break storage, network or input. 'Module is in use' means you must close its users first."
+      }
+    ]
+  },
+  {
+    "id": "udevadm",
+    "name": "udevadm",
+    "category": "kernel",
+    "summary": "Watch device add/remove events and see the attributes udev rules can match.",
+    "aliases": ["udev", "udev rules", "device events"],
+    "tags": ["udev", "device", "usb", "hotplug", "rules", "serial", "ttyUSB", "attributes", "dev"],
+    "man": "udevadm.8",
+    "install": { "status": "usually-installed", "packages": { "debian": "udev (systemd)", "fedora": "systemd-udev", "arch": "systemd", "alpine": "eudev" }, "note": "Minimal embedded systems may use mdev (BusyBox) or a static /dev instead of udev." },
+    "compat": "Device events are not available in most containers or WSL without extra setup.",
+    "examples": [
+      {
+        "title": "Watch device events while plugging hardware",
+        "cmd": "udevadm monitor --udev --property",
+        "explain": "Plug in a USB-serial adapter and see the events with properties such as DEVNAME=/dev/ttyUSB0. Ctrl+C stops.",
+        "risk": "read",
+        "options": [["--udev", "Show events after udev processing"], ["--property", "Print event properties"]]
+      },
+      {
+        "title": "Show attributes for writing a udev rule",
+        "cmd": "udevadm info --attribute-walk --name=<device>",
+        "explain": "<device> like /dev/ttyUSB0. Lists ATTRS{idVendor}, ATTRS{idProduct}, ATTRS{serial} up the parent chain, which rules can match on.",
+        "risk": "read",
+        "options": [["--attribute-walk", "Print attributes of the device and its parents"], ["--name", "Device node"]]
+      }
+    ]
+  }
+]

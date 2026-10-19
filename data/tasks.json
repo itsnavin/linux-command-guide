@@ -1,0 +1,793 @@
+[
+  {
+    "id": "find-large-files",
+    "group": "everyday",
+    "title": "Find what is using disk space",
+    "summary": "Locate the biggest directories and files when a disk is filling up.",
+    "tags": ["disk full", "large files", "big files", "space", "no space left on device", "cleanup", "du", "df"],
+    "related": ["df", "du", "find", "sort", "ls"],
+    "steps": [
+      {
+        "title": "See which filesystem is full",
+        "cmd": "df -h",
+        "explain": "Shows each mounted filesystem with its size, used and available space.",
+        "risk": "read",
+        "output": "Look at Use% and 'Mounted on'. Only investigate the filesystem near 100%; /home and / may be separate.",
+        "errors": ["If space looks free but writes still fail with 'No space left on device', check inodes with df -i (too many small files)."]
+      },
+      {
+        "title": "Find the biggest directories one level down",
+        "cmd": "du -h -d 1 <dir> 2> /dev/null | sort -h | tail -n 15",
+        "explain": "du totals each subdirectory; sort -h understands K/M/G suffixes; tail keeps the largest. 2> /dev/null hides 'Permission denied' noise from directories you cannot read.",
+        "risk": "read",
+        "output": "The last line is the total of <dir> itself. Repeat with the biggest subdirectory as the new <dir> to drill down.",
+        "errors": ["Totals for system directories are incomplete without root because unreadable folders are skipped. That is expected; start with your home directory."]
+      },
+      {
+        "title": "List individual files above a size",
+        "cmd": "find <dir> -xdev -type f -size +100M -exec ls -lh -- {} + 2> /dev/null",
+        "explain": "-xdev stays on one filesystem (does not wander into other mounts); -size +100M means larger than 100 MiB; ls -lh prints sizes for review.",
+        "risk": "read",
+        "output": "Typical culprits: build directories (Yocto tmp/ and downloads/ can be tens of GB), VM images, core dumps, old logs, downloads."
+      },
+      {
+        "title": "Decide what to remove, deliberately",
+        "explain": "Nothing above deleted anything. Remove only files you recognise, by exact path, preferably moving them first or using your build system's clean target (e.g. make clean after make -n clean). Never delete files under system directories to free space; use your package manager's cleanup instead (e.g. sudo apt clean on Debian/Ubuntu)."
+      }
+    ]
+  },
+  {
+    "id": "read-logs",
+    "group": "everyday",
+    "title": "Read system and service logs",
+    "summary": "Find error messages from services, the kernel and the last boot.",
+    "tags": ["logs", "read logs", "error", "journal", "syslog", "var log", "boot", "why did it fail"],
+    "related": ["journalctl", "dmesg", "systemctl", "tail", "less", "grep"],
+    "steps": [
+      {
+        "title": "Is it a systemd system?",
+        "cmd": "ps -p 1 -o comm=",
+        "explain": "Process 1 is the init system. If it prints systemd, journalctl is available; otherwise logs are plain files in /var/log/ or only dmesg.",
+        "risk": "read",
+        "output": "systemd, init, or busybox/sh-like names. In containers it is often your own program."
+      },
+      {
+        "title": "Errors since this boot (systemd)",
+        "cmd": "journalctl -b -p err",
+        "explain": "Only messages at priority err or worse since boot.",
+        "risk": "read",
+        "errors": ["'You are currently not seeing messages from other users and the system' means you need to be in the systemd-journal or adm group (depends on distribution) or use sudo."]
+      },
+      {
+        "title": "One service's logs",
+        "cmd": "journalctl -u <service> -n 100 --no-pager",
+        "explain": "The last 100 lines for a single service, such as ssh or NetworkManager. systemctl status <service> shows the same tail plus its state.",
+        "risk": "read"
+      },
+      {
+        "title": "Follow a plain log file (non-systemd)",
+        "cmd": "tail -F <logfile>",
+        "explain": "Prints new lines as they arrive and survives log rotation. Common files: /var/log/syslog (Debian), /var/log/messages (RHEL, BusyBox syslogd).",
+        "risk": "read",
+        "errors": ["'Permission denied' on /var/log files: many are readable only by root or the adm group."]
+      },
+      {
+        "title": "Kernel and driver messages",
+        "cmd": "sudo dmesg -T | tail -n 50",
+        "explain": "Hardware, USB and driver problems usually show up here.",
+        "risk": "read",
+        "root": true,
+        "warning": "sudo is used only to read the kernel log (needed when kernel.dmesg_restrict=1).",
+        "errors": ["'dmesg: read kernel buffer failed: Operation not permitted' means dmesg_restrict is on; use sudo or journalctl -k."]
+      }
+    ]
+  },
+  {
+    "id": "check-listening-ports",
+    "group": "everyday",
+    "title": "Check which ports are listening",
+    "summary": "See which programs accept network connections, and on which addresses.",
+    "tags": ["ports", "listening ports", "open ports", "port in use", "address already in use", "server", "network"],
+    "related": ["ss", "lsof", "ip", "curl"],
+    "steps": [
+      {
+        "title": "List listening TCP and UDP sockets",
+        "cmd": "ss -tuln",
+        "explain": "-t TCP, -u UDP, -l listening only, -n numeric ports (no name lookup).",
+        "risk": "read",
+        "output": "Local Address:Port tells you where it listens: 127.0.0.1 or [::1] = this machine only; 0.0.0.0 or [::] or * = all interfaces, reachable from the network unless a firewall blocks it."
+      },
+      {
+        "title": "Show which process owns each socket",
+        "cmd": "sudo ss -tulnp",
+        "explain": "-p adds users:((\"name\",pid=...)). Without root you only see your own processes.",
+        "risk": "read",
+        "root": true,
+        "warning": "sudo is used only to see other users' process names."
+      },
+      {
+        "title": "Test it from this machine",
+        "cmd": "curl -sS -I http://127.0.0.1:<port>/",
+        "explain": "For HTTP services: prints response headers. 'Connection refused' means nothing listens on that address/port.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "port-in-use",
+    "group": "everyday",
+    "title": "Find the process using a port",
+    "summary": "Fix 'Address already in use' by finding which program holds the port.",
+    "tags": ["address already in use", "port in use", "EADDRINUSE", "kill process on port", "bind failed"],
+    "related": ["ss", "lsof", "ps", "kill"],
+    "steps": [
+      {
+        "title": "Find the listener on the port",
+        "cmd": "sudo ss -ltnp 'sport = :<port>'",
+        "explain": "The filter shows only sockets whose source port is <port>. Quoted so the shell passes it as one argument.",
+        "risk": "read",
+        "root": true,
+        "warning": "sudo is used only to read process names.",
+        "output": "users:((\"name\",pid=1234,fd=3)) gives the program and PID."
+      },
+      {
+        "title": "Alternative with lsof",
+        "cmd": "sudo lsof -i :<port>",
+        "explain": "Lists open network files using that port, with COMMAND and PID columns.",
+        "risk": "read",
+        "root": true,
+        "warning": "sudo is used only to see other users' processes."
+      },
+      {
+        "title": "Check what that PID is before acting",
+        "cmd": "ps -o pid,user,etime,args -p <pid>",
+        "explain": "Shows owner, how long it has run, and the full command line. Make sure it is your leftover program, not a system service.",
+        "risk": "read"
+      },
+      {
+        "title": "Stop it politely",
+        "cmd": "kill <pid>",
+        "explain": "Sends SIGTERM so the program can clean up. If it is a systemd service, use sudo systemctl stop <service> instead, or it may be restarted.",
+        "risk": "destructive",
+        "warning": "The program stops and loses unsaved state. Double-check the PID: PIDs are reused, so do not rely on an old number."
+      }
+    ]
+  },
+  {
+    "id": "cpu-memory-hog",
+    "group": "everyday",
+    "title": "Find what is slowing the machine down",
+    "summary": "Identify processes using the most CPU or memory.",
+    "tags": ["slow", "high cpu", "memory", "ram", "out of memory", "oom", "load", "top", "hang"],
+    "related": ["top", "ps", "free", "uptime", "kill"],
+    "steps": [
+      {
+        "title": "Overall load and memory",
+        "cmd": "uptime; free -h",
+        "explain": "Load average vs nproc tells you if the CPUs are overloaded; free shows memory and swap.",
+        "risk": "read",
+        "output": "Use the 'available' column, not 'free': Linux uses spare RAM as cache and gives it back when needed."
+      },
+      {
+        "title": "Top processes by CPU",
+        "cmd": "ps -eo pid,user,%cpu,%mem,comm --sort=-%cpu | head -n 10",
+        "explain": "A snapshot sorted by CPU. Run top for a live view (press M to sort by memory, q to quit).",
+        "risk": "read"
+      },
+      {
+        "title": "Top processes by memory",
+        "cmd": "ps -eo pid,user,%mem,rss,comm --sort=-rss | head -n 10",
+        "explain": "RSS is resident memory in KiB.",
+        "risk": "read"
+      },
+      {
+        "title": "Did the kernel kill something for memory?",
+        "cmd": "sudo dmesg -T | grep -i -E 'out of memory|oom'",
+        "explain": "The OOM killer logs which process it killed.",
+        "risk": "read",
+        "root": true,
+        "warning": "sudo is used only to read the kernel log."
+      }
+    ]
+  },
+  {
+    "id": "recently-changed-files",
+    "group": "everyday",
+    "title": "Find recently changed files",
+    "summary": "See which files changed in the last minutes or days, e.g. after a build or install.",
+    "tags": ["recent files", "modified", "changed", "mtime", "newer", "what changed"],
+    "related": ["find", "ls", "stat"],
+    "steps": [
+      {
+        "title": "Files modified in the last 60 minutes",
+        "cmd": "find <dir> -type f -mmin -60",
+        "explain": "-mmin -60 means modified less than 60 minutes ago. Use -mtime -2 for the last 2 days.",
+        "risk": "read"
+      },
+      {
+        "title": "Newest files first in one directory",
+        "cmd": "ls -lt <dir> | head",
+        "explain": "-t sorts by modification time, newest first.",
+        "risk": "read"
+      },
+      {
+        "title": "Exact timestamps of one file",
+        "cmd": "stat -- <file>",
+        "explain": "Modify = content changed; Change = metadata (permissions, owner) changed; Access may not update on every read (relatime).",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "search-codebase",
+    "group": "dev",
+    "title": "Search a codebase for a function or message",
+    "summary": "Find where a symbol, error message or config option is defined and used.",
+    "tags": ["grep", "search code", "find function", "where defined", "source", "kernel source", "recursive search"],
+    "related": ["grep", "find", "xargs", "git"],
+    "steps": [
+      {
+        "title": "Recursive search with line numbers",
+        "cmd": "grep -rn -- '<text>' <dir>",
+        "explain": "-r recurses, -n shows line numbers. Single quotes keep the shell from changing $, * or spaces in <text>; -- protects text starting with -.",
+        "risk": "read",
+        "output": "path:line:matching line. No output and exit status 1 means no match."
+      },
+      {
+        "title": "Only C sources and headers, whole words",
+        "cmd": "grep -rnw --include='*.c' --include='*.h' -- '<symbol>' <dir>",
+        "explain": "-w avoids matching probe inside my_probe_helper. --include limits file types.",
+        "risk": "read"
+      },
+      {
+        "title": "Inside a git repository",
+        "cmd": "git grep -n -- '<text>'",
+        "explain": "Faster, and skips untracked build output automatically.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "compile-run-c",
+    "group": "dev",
+    "title": "Compile and run a C program",
+    "summary": "From hello.c to a running program, and how to read compiler errors.",
+    "tags": ["compile", "c program", "gcc", "hello world", "run program", "permission denied", "undefined reference"],
+    "related": ["gcc", "file", "ldd", "gdb"],
+    "steps": [
+      {
+        "title": "Check the compiler is installed",
+        "cmd": "gcc --version",
+        "explain": "'command not found' means install it: build-essential (Debian/Ubuntu), gcc (Fedora), base-devel (Arch), build-base (Alpine).",
+        "risk": "read"
+      },
+      {
+        "title": "Compile with warnings and debug info",
+        "cmd": "gcc -Wall -Wextra -g -o hello hello.c",
+        "explain": "Creates the executable hello in the current directory.",
+        "risk": "modify",
+        "output": "Silence means success. Warnings start with file:line:column: warning:, errors with error:.",
+        "errors": ["'undefined reference to `foo`' is a linker error: the function's .c file or library (-l...) is missing from the command.", "'fatal error: xyz.h: No such file or directory': install the library's -dev/-devel package or add -I<dir>."]
+      },
+      {
+        "title": "Run it",
+        "cmd": "./hello",
+        "explain": "./ is needed because the current directory is not on PATH (deliberately, for safety).",
+        "risk": "read",
+        "errors": ["'Permission denied' usually means the file is not executable or lives on a filesystem mounted noexec.", "'cannot execute binary file: Exec format error' means it was built for another architecture."]
+      },
+      {
+        "title": "Check the exit status",
+        "cmd": "echo \"$?\"",
+        "explain": "Prints the return value of main from the previous command: 0 means success.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "build-with-make",
+    "group": "dev",
+    "title": "Build a project with make",
+    "summary": "Run an existing Makefile, understand its output, and fix common errors.",
+    "tags": ["make", "makefile", "build", "missing separator", "no rule to make target", "clean"],
+    "related": ["make", "gcc", "cat", "cmake"],
+    "steps": [
+      {
+        "title": "Preview what make will do",
+        "cmd": "make -n",
+        "explain": "Prints the commands without running them.",
+        "risk": "read"
+      },
+      {
+        "title": "Build",
+        "cmd": "make -j\"$(nproc)\"",
+        "explain": "Builds in parallel using all CPU cores.",
+        "risk": "modify",
+        "errors": ["'*** missing separator': a recipe line starts with spaces instead of a Tab; check with cat -A Makefile (tabs show as ^I).", "'No rule to make target X': a source file named in the Makefile does not exist, or you are in the wrong directory.", "If errors scroll past, rerun plain make (no -j) to see the first error in order."]
+      },
+      {
+        "title": "Force a rebuild",
+        "cmd": "make -B",
+        "explain": "Rebuilds all targets even if they look up to date; useful after changing compiler flags.",
+        "risk": "modify"
+      }
+    ]
+  },
+  {
+    "id": "inspect-binary",
+    "group": "dev",
+    "title": "Inspect an executable or object file",
+    "summary": "Find a binary's architecture, linked libraries and symbols, e.g. before copying it to a board.",
+    "tags": ["elf", "architecture", "exec format error", "arm", "binary", "shared library", "symbols", "cross-compile"],
+    "related": ["file", "readelf", "ldd", "nm", "objdump", "strings"],
+    "steps": [
+      {
+        "title": "What kind of file is it?",
+        "cmd": "file <binary>",
+        "explain": "Reports ELF class (32/64-bit), architecture (x86-64, ARM aarch64, ...), dynamic or static linking, and whether it is stripped.",
+        "risk": "read",
+        "output": "Compare the architecture with uname -m on the machine where it should run."
+      },
+      {
+        "title": "Header details",
+        "cmd": "readelf -h <binary>",
+        "explain": "Machine and Type fields; works for any architecture.",
+        "risk": "read"
+      },
+      {
+        "title": "Needed shared libraries (safe for untrusted files)",
+        "cmd": "readelf -d <binary> | grep NEEDED",
+        "explain": "Each library must exist on the target system. On the target itself, ldd shows where they resolve, but only use ldd on trusted binaries.",
+        "risk": "read"
+      },
+      {
+        "title": "Is a function defined or missing?",
+        "cmd": "nm -C <binary> | grep -i <name>",
+        "explain": "T = defined here, U = needed from a library. Stripped binaries show 'no symbols'; try nm -D.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "kernel-module-basics",
+    "group": "embedded",
+    "title": "Inspect, load and unload a kernel module",
+    "summary": "Safe order of steps for testing your own driver module on a test machine.",
+    "tags": ["kernel module", "driver", "insmod", "rmmod", "modprobe", "lsmod", "modinfo", "dmesg", ".ko", "invalid module format"],
+    "related": ["lsmod", "modinfo", "insmod", "rmmod", "modprobe", "dmesg", "uname"],
+    "steps": [
+      {
+        "title": "Use a VM or test board",
+        "explain": "Module code runs inside the kernel. A bug can freeze or crash the whole machine and lose unsaved work. Practise in a virtual machine or on a development board, not on the computer you depend on."
+      },
+      {
+        "title": "Check the running kernel version",
+        "cmd": "uname -r",
+        "explain": "Your module must be built against headers for exactly this version (e.g. package linux-headers-$(uname -r) on Debian/Ubuntu).",
+        "risk": "read"
+      },
+      {
+        "title": "Check your module matches",
+        "cmd": "modinfo ./<module>.ko",
+        "explain": "Compare vermagic with uname -r; also check license and parm (parameters).",
+        "risk": "read"
+      },
+      {
+        "title": "Watch the kernel log in a second terminal",
+        "cmd": "sudo dmesg -w",
+        "explain": "Your pr_info()/dev_info() messages and any oops appear here.",
+        "risk": "read",
+        "root": true,
+        "warning": "sudo is used only to read the kernel log."
+      },
+      {
+        "title": "Load it",
+        "cmd": "sudo insmod ./<module>.ko",
+        "explain": "Runs your module_init function.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Runs your code in the kernel as root; bugs can crash the system. Test machine only.",
+        "errors": ["'Invalid module format': vermagic mismatch, rebuild against the running kernel.", "'Operation not permitted': not root, or Secure Boot/lockdown requires signed modules.", "'Unknown symbol in module': see dmesg; often a missing dependency (use modprobe for installed modules) or a GPL-only symbol used by a non-GPL module."]
+      },
+      {
+        "title": "Confirm it is loaded",
+        "cmd": "lsmod | grep <module>",
+        "explain": "Shows size and how many users it has.",
+        "risk": "read"
+      },
+      {
+        "title": "Unload it",
+        "cmd": "sudo rmmod <module>",
+        "explain": "Runs your module_exit function; check dmesg for its messages.",
+        "risk": "destructive",
+        "root": true,
+        "warning": "Only unload your own test module. 'Module is in use' means a process still has its device open."
+      }
+    ]
+  },
+  {
+    "id": "usb-device-detect",
+    "group": "embedded",
+    "title": "Check whether a USB device was detected",
+    "summary": "Plug in a USB device or USB-serial adapter and confirm the kernel saw it and bound a driver.",
+    "tags": ["usb", "device not detected", "ttyUSB", "ttyACM", "lsusb", "hotplug", "driver binding", "serial adapter"],
+    "related": ["lsusb", "dmesg", "udevadm", "ls", "lsmod"],
+    "steps": [
+      {
+        "title": "Watch kernel messages, then plug it in",
+        "cmd": "sudo dmesg -w",
+        "explain": "Look for 'new USB device', the vendor/product IDs, and lines like 'now attached to ttyUSB0'. Ctrl+C when done.",
+        "risk": "read",
+        "root": true,
+        "warning": "sudo is used only to read the kernel log.",
+        "errors": ["No message at all: try another cable (many are charge-only) or port. In WSL, USB devices must first be attached with usbipd on Windows; in VMs, pass the device through."]
+      },
+      {
+        "title": "List USB devices",
+        "cmd": "lsusb",
+        "explain": "Each line has ID vendor:product. Note the ID to search for the right driver.",
+        "risk": "read"
+      },
+      {
+        "title": "See which driver is bound",
+        "cmd": "lsusb -t",
+        "explain": "Tree view with Driver=... per interface. Driver=[none] means no driver claimed it.",
+        "risk": "read"
+      },
+      {
+        "title": "Find the device node",
+        "cmd": "ls -l /dev/ttyUSB* /dev/ttyACM*",
+        "explain": "USB-serial adapters usually appear as ttyUSB0 (FTDI/CP210x/CH340) or ttyACM0 (CDC-ACM, many dev boards). 'No such file or directory' for one pattern is normal.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "serial-port-permission",
+    "group": "embedded",
+    "title": "Fix 'Permission denied' on a serial port",
+    "summary": "Get access to /dev/ttyUSB0 without running your serial terminal as root.",
+    "tags": ["serial", "permission denied", "ttyUSB0", "ttyACM0", "dialout", "uucp", "minicom", "picocom", "screen"],
+    "related": ["ls", "id", "usermod"],
+    "steps": [
+      {
+        "title": "Check the device's owner group",
+        "cmd": "ls -l <device>",
+        "explain": "<device> such as /dev/ttyUSB0.",
+        "risk": "read",
+        "output": "e.g. crw-rw---- 1 root dialout ...: owner root and group dialout can read/write; everyone else cannot. Some distributions use uucp instead of dialout."
+      },
+      {
+        "title": "Check your groups",
+        "cmd": "id",
+        "explain": "If that group is missing from groups=..., you are not allowed to open the port.",
+        "risk": "read"
+      },
+      {
+        "title": "Add yourself to that group",
+        "cmd": "sudo usermod -aG <group> \"$USER\"",
+        "explain": "-a appends; without it, -G would replace all your supplementary groups.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Changes your account as root. Double-check -a is present and the group name is right; membership grants access to all serial devices.",
+        "errors": ["Membership only applies to new logins: log out and back in (or reboot), then run id again."]
+      }
+    ]
+  },
+  {
+    "id": "flash-sd-card",
+    "group": "embedded",
+    "title": "Write an image to an SD card (inspect first)",
+    "summary": "Identify the right device before writing a Yocto/Raspberry Pi image; the wrong device means data loss.",
+    "tags": ["sd card", "flash image", "dd", "wic", "img", "write image", "bmaptool", "usb stick"],
+    "related": ["lsblk", "dd", "sha256sum", "xz", "mount"],
+    "steps": [
+      {
+        "title": "Verify the image",
+        "cmd": "sha256sum <image>",
+        "explain": "Compare with the published checksum before writing.",
+        "risk": "read"
+      },
+      {
+        "title": "List disks BEFORE inserting the card",
+        "cmd": "lsblk -o NAME,SIZE,TYPE,TRAN,MODEL,MOUNTPOINTS",
+        "explain": "Remember what you see. Then insert the card and run it again: the new disk (e.g. sdb or mmcblk0) is the card. Check its size matches.",
+        "risk": "read",
+        "errors": ["Older util-linux uses MOUNTPOINT (singular) instead of MOUNTPOINTS."]
+      },
+      {
+        "title": "Unmount any auto-mounted partitions of the card",
+        "cmd": "sudo umount <card-partition>",
+        "explain": "Repeat for each mounted partition of the card only (e.g. /dev/sdb1).",
+        "risk": "modify",
+        "root": true,
+        "warning": "Make sure the partition belongs to the card, not your system disk."
+      },
+      {
+        "title": "Write the image",
+        "cmd": "sudo dd if=<image> of=<card-device> bs=4M conv=fsync status=progress",
+        "explain": "<card-device> is the whole disk (e.g. /dev/sdX or /dev/mmcblk0), not a partition. Many projects recommend bmaptool for .wic images; it is faster and verifies.",
+        "risk": "destructive",
+        "root": true,
+        "warning": "dd overwrites the target device completely without asking. Choosing your system disk destroys your operating system and files. Re-check lsblk immediately before running.",
+        "errors": ["'Permission denied' means you forgot sudo; 'No space left on device' at the very end can happen when the image is larger than the card."]
+      },
+      {
+        "title": "Flush and eject",
+        "cmd": "sync",
+        "explain": "Waits until all cached writes reach the card before you remove it.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "archive-directory",
+    "group": "everyday",
+    "title": "Archive a directory and copy it elsewhere",
+    "summary": "Pack a project into a tarball, verify it, and copy it to another machine.",
+    "tags": ["backup", "archive", "tarball", "copy to board", "transfer files", "scp", "rsync"],
+    "related": ["tar", "sha256sum", "scp", "rsync"],
+    "steps": [
+      {
+        "title": "Create the archive",
+        "cmd": "tar -czf <name>.tar.gz <dir>",
+        "explain": "Run from the parent of <dir> so paths in the archive start with <dir>/.",
+        "risk": "modify",
+        "warning": "Overwrites an existing <name>.tar.gz."
+      },
+      {
+        "title": "Check what is inside",
+        "cmd": "tar -tzf <name>.tar.gz | head",
+        "explain": "Confirms the files and paths look right.",
+        "risk": "read"
+      },
+      {
+        "title": "Copy to another machine",
+        "cmd": "scp <name>.tar.gz <user>@<host>:<remote-dir>/",
+        "explain": "For repeated syncing of a whole directory, rsync -av --dry-run first, then without --dry-run.",
+        "risk": "modify",
+        "warning": "Overwrites a file with the same name on the remote side."
+      }
+    ]
+  },
+  {
+    "id": "script-permission-denied",
+    "group": "everyday",
+    "title": "Fix 'Permission denied' when running a script",
+    "summary": "Understand execute permission, the shebang line and noexec mounts.",
+    "tags": ["permission denied", "chmod +x", "run script", "shebang", "bad interpreter", "noexec", "./script.sh"],
+    "related": ["ls", "chmod", "head", "mount", "file"],
+    "steps": [
+      {
+        "title": "Look at the permissions",
+        "cmd": "ls -l -- <script>",
+        "explain": "-rw-r--r-- has no x: it is not executable.",
+        "risk": "read"
+      },
+      {
+        "title": "Make it executable for you",
+        "cmd": "chmod u+x -- <script>",
+        "explain": "Adds execute for the owner only. Avoid chmod 777: it lets every user modify the file.",
+        "risk": "modify"
+      },
+      {
+        "title": "Check the first line",
+        "cmd": "head -n 1 -- <script>",
+        "explain": "Should be a shebang such as #!/bin/sh or #!/usr/bin/env bash.",
+        "risk": "read",
+        "errors": ["'bad interpreter: No such file or directory': the interpreter path is wrong, or the file has Windows line endings (shown as /bin/sh^M); convert with sed -i 's/\\r$//' <script> or dos2unix."]
+      },
+      {
+        "title": "Still denied? Check the filesystem",
+        "cmd": "findmnt -T <script> -o TARGET,OPTIONS",
+        "explain": "If OPTIONS contains noexec (common for /tmp, USB sticks, some Windows mounts), run it as sh <script> or copy it elsewhere.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "basics-redirection",
+    "group": "basics",
+    "title": "Redirection: overwrite (>) vs append (>>), and stderr",
+    "summary": "Send output to files without accidentally wiping them.",
+    "tags": ["redirect", "redirection", ">", ">>", "2>&1", "stderr", "stdout", "overwrite", "append", "/dev/null"],
+    "related": ["echo", "tee", "cat"],
+    "steps": [
+      {
+        "title": "> replaces the whole file",
+        "cmd": "echo 'first' > <file>",
+        "explain": "The shell empties <file> before the command even starts. If <file> held important data, it is gone.",
+        "risk": "destructive",
+        "warning": "Overwrites <file> without asking. In bash, set -o noclobber makes > refuse to overwrite existing files."
+      },
+      {
+        "title": ">> appends to the end",
+        "cmd": "echo 'second' >> <file>",
+        "explain": "Creates the file if missing, otherwise adds a line at the end.",
+        "risk": "modify"
+      },
+      {
+        "title": "Errors go to a separate stream",
+        "cmd": "ls <dir> missing-file > out.txt 2> err.txt",
+        "explain": "1 (stdout) is normal output, 2 (stderr) is error messages. Each can be redirected separately.",
+        "risk": "modify",
+        "warning": "Overwrites out.txt and err.txt in the current directory."
+      },
+      {
+        "title": "Both streams into one file",
+        "cmd": "make > build.log 2>&1",
+        "explain": "Order matters: first point stdout at the file, then 2>&1 makes stderr go where stdout goes now. Writing 2>&1 > file sends errors to the terminal instead.",
+        "risk": "modify",
+        "warning": "Overwrites build.log; use >> to keep previous logs."
+      },
+      {
+        "title": "Discard noise",
+        "cmd": "find <dir> -name '*.c' 2> /dev/null",
+        "explain": "/dev/null throws away whatever is written to it, here the 'Permission denied' messages.",
+        "risk": "read"
+      },
+      {
+        "title": "Writing to root-owned files",
+        "cmd": "echo '<line>' | sudo tee -a <file>",
+        "explain": "sudo echo ... > file fails because the redirection is done by your own shell, not by sudo. tee runs as root and -a appends.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Writes to a system file as root. Without -a, tee overwrites the file. Back up the file first."
+      }
+    ]
+  },
+  {
+    "id": "basics-quoting",
+    "group": "basics",
+    "title": "Quoting, spaces and special characters",
+    "summary": "Why file names with spaces break commands, and when to use '...' vs \"...\".",
+    "tags": ["quotes", "quoting", "spaces in file names", "single quotes", "double quotes", "escape", "variables", "glob"],
+    "related": ["echo", "printf", "ls", "rm"],
+    "steps": [
+      {
+        "title": "Spaces split words",
+        "cmd": "ls -l 'file with spaces.txt'",
+        "explain": "Without quotes the shell passes three separate names: file, with, spaces.txt.",
+        "risk": "read"
+      },
+      {
+        "title": "Single quotes: everything literal",
+        "cmd": "echo 'Cost: $5 and *'",
+        "explain": "Nothing is expanded inside single quotes: no $variables, no * globs.",
+        "risk": "read"
+      },
+      {
+        "title": "Double quotes: variables expand, but stay one word",
+        "cmd": "echo \"Home is $HOME\"",
+        "explain": "Always write \"$var\" when using variables that contain paths, so spaces do not split them.",
+        "risk": "read"
+      },
+      {
+        "title": "Placeholders on this site",
+        "explain": "Text like <file> is a placeholder: replace the whole thing including < and >. If your value contains spaces or special characters, wrap it in single quotes. Never leave < or > in the command: the shell treats them as redirection and may overwrite a file."
+      }
+    ]
+  },
+  {
+    "id": "basics-pipes-exit-status",
+    "group": "basics",
+    "title": "Pipes, exit status and chaining",
+    "summary": "Connect commands with |, and use && / || and $? to react to success or failure.",
+    "tags": ["pipe", "pipeline", "|", "exit status", "exit code", "$?", "&&", "||", "pipefail", "chain commands"],
+    "related": ["grep", "sort", "wc", "echo"],
+    "steps": [
+      {
+        "title": "A pipe feeds one command's output into the next",
+        "cmd": "grep -c error <file> ; sort <file> | uniq -c | sort -rn | head",
+        "explain": "Each | connects stdout to the next command's stdin. Only stdout is piped; stderr still goes to the terminal.",
+        "risk": "read"
+      },
+      {
+        "title": "Exit status of the last command",
+        "cmd": "grep -q 'TODO' <file>; echo \"$?\"",
+        "explain": "0 means success (grep: found). Non-zero means failure or 'not found' (grep: 1 = no match, 2 = error).",
+        "risk": "read"
+      },
+      {
+        "title": "Run the next command only if the first succeeded",
+        "cmd": "make && ./<program>",
+        "explain": "&& stops if make fails, so you never run an old binary by mistake. || runs the right side only on failure.",
+        "risk": "modify"
+      },
+      {
+        "title": "Pipelines hide earlier failures",
+        "cmd": "set -o pipefail",
+        "explain": "By default a pipeline's status is that of its last command. In bash scripts, pipefail makes the pipeline fail if any part fails. It is not available in every POSIX sh.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "basics-option-terminator",
+    "group": "basics",
+    "title": "The -- option terminator",
+    "summary": "Safely handle file names that start with a dash.",
+    "tags": ["--", "dash", "end of options", "filename starts with dash", "option terminator"],
+    "related": ["rm", "grep", "ls", "touch"],
+    "steps": [
+      {
+        "title": "Names starting with - look like options",
+        "cmd": "ls -l -- <file>",
+        "explain": "Everything after -- is treated as a name, even -rf or --help. Most GNU and BusyBox tools support it.",
+        "risk": "read"
+      },
+      {
+        "title": "Searching for text that starts with a dash",
+        "cmd": "grep -n -- '-Wall' <file>",
+        "explain": "Without --, grep would try to interpret -Wall as options.",
+        "risk": "read"
+      },
+      {
+        "title": "Alternative: prefix with ./",
+        "cmd": "ls -l ./<file>",
+        "explain": "./-name is clearly a path, so no tool mistakes it for an option.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "basics-sudo-root",
+    "group": "basics",
+    "title": "sudo, root and permissions",
+    "summary": "When you really need sudo, and why not to prefix everything with it.",
+    "tags": ["sudo", "root", "permission denied", "administrator", "privileges", "su"],
+    "related": ["sudo", "id", "ls", "chmod", "chown"],
+    "steps": [
+      {
+        "title": "First ask why it was denied",
+        "cmd": "ls -ld -- <path>",
+        "explain": "Owner, group and rwx bits explain most 'Permission denied' errors. Often the fix is to work in your home directory or join a group (e.g. dialout), not sudo.",
+        "risk": "read"
+      },
+      {
+        "title": "Check what you may run with sudo",
+        "cmd": "sudo -l",
+        "explain": "Lists the commands your account is allowed to run as root.",
+        "risk": "read",
+        "root": true,
+        "warning": "Asks for your password; it only lists rules."
+      },
+      {
+        "title": "Rules of thumb",
+        "explain": "Use sudo only for the single command that needs it (installing packages, loading modules, writing system files). Do not build or compile with sudo: it leaves root-owned files in your project. Never run downloaded scripts with sudo before reading them. A warning label on this site does not make a command safe; you are responsible for checking targets."
+      }
+    ]
+  },
+  {
+    "id": "basics-compatibility",
+    "group": "basics",
+    "title": "GNU vs BusyBox, bash vs sh, systemd or not",
+    "summary": "Why a command works on your PC but not on an embedded board or container.",
+    "tags": ["busybox", "gnu", "posix", "sh", "bash", "dash", "systemd", "openrc", "sysvinit", "embedded", "yocto", "buildroot", "alpine", "compatibility"],
+    "related": ["type", "ls", "systemctl", "journalctl"],
+    "steps": [
+      {
+        "title": "Which implementation is this?",
+        "cmd": "ls --version 2>&1 | head -n 1",
+        "explain": "GNU coreutils prints 'ls (GNU coreutils) ...'. BusyBox prints its own banner or an error. Many embedded images (Yocto core-image-minimal, Buildroot, Alpine) use BusyBox, which supports fewer options.",
+        "risk": "read"
+      },
+      {
+        "title": "Which shell am I using?",
+        "cmd": "ps -p \"$$\" -o comm=",
+        "explain": "bash, dash, ash (BusyBox) or zsh. Scripts starting with #!/bin/sh should avoid bash-only features like [[ ]], arrays and pipefail; on Debian/Ubuntu /bin/sh is dash.",
+        "risk": "read"
+      },
+      {
+        "title": "Is a command a builtin, alias or program?",
+        "cmd": "type <command>",
+        "explain": "Builtins (cd, echo, export) differ between shells; programs come from packages and may be missing.",
+        "risk": "read"
+      },
+      {
+        "title": "systemd is not universal",
+        "explain": "systemctl and journalctl only work when systemd is the init system (check ps -p 1 -o comm=). Alpine uses OpenRC (rc-service), many BusyBox systems use /etc/init.d scripts and syslogd, and most containers run no init at all."
+      }
+    ]
+  }
+]

@@ -1,0 +1,207 @@
+[
+  {
+    "id": "chmod",
+    "name": "chmod",
+    "category": "permissions",
+    "summary": "Change permission bits: who may read, write or execute a file.",
+    "aliases": ["change mode", "make executable", "permission denied"],
+    "tags": ["permissions", "executable", "chmod +x", "octal", "755", "644", "600", "permission denied", "script"],
+    "man": "chmod.1",
+    "docs": [{ "label": "GNU coreutils: file permissions", "url": "https://www.gnu.org/software/coreutils/manual/html_node/File-permissions.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "Octal digits: r = 4, w = 2, x = 1, summed per class (user, group, others): 755 = rwxr-xr-x, 644 = rw-r--r--, 600 = rw-------. Avoid 777: it lets every user modify the file and rarely fixes the real problem.",
+    "examples": [
+      {
+        "title": "Make a script executable for you",
+        "cmd": "chmod u+x <script>",
+        "explain": "Fixes 'Permission denied' when running ./script.sh. u = owner, + adds, x = execute. Use a+x to allow everyone.",
+        "risk": "modify",
+        "options": [["u+x", "Add execute permission for the owner (user)"]],
+        "test": { "before": "printf '#!/bin/sh\\necho ran\\n' > run.sh", "vars": { "script": "run.sh" }, "after": "./run.sh", "expect": "^ran$" }
+      },
+      {
+        "title": "Typical file and directory modes",
+        "cmd": "chmod 644 <file>",
+        "explain": "644: owner can read and write, everyone else can only read. Directories normally use 755, because x on a directory means 'may enter it'.",
+        "risk": "modify",
+        "options": [["644", "rw-r--r--"]],
+        "test": { "vars": { "file": "notes.txt" }, "after": "stat -c %a notes.txt", "expect": "^644$" }
+      },
+      {
+        "title": "Protect a private key",
+        "cmd": "chmod 600 <private-key-file>",
+        "explain": "ssh refuses keys that other users can read ('UNPROTECTED PRIVATE KEY FILE'). 600 = only the owner can read and write.",
+        "risk": "modify",
+        "options": [["600", "rw------- (owner only)"]]
+      },
+      {
+        "title": "Remove group/other write access in a project tree",
+        "cmd": "chmod -R go-w <project-dir>",
+        "explain": "-R applies the change to every file and directory below <project-dir>. go-w removes write access for group and others, leaving everything else as it was.",
+        "risk": "destructive",
+        "warning": "Recursive permission changes are hard to undo because the previous modes are lost. Only use it on your own project directory, never on /, /etc, /usr, /home or anything under them as a whole. Check the target with ls -ld first.",
+        "options": [["-R", "Recursive"], ["go-w", "Remove write permission from group and others"]]
+      }
+    ]
+  },
+  {
+    "id": "chown",
+    "name": "chown",
+    "category": "permissions",
+    "summary": "Change the owner and group of files (needs root).",
+    "aliases": ["change owner", "chgrp", "owned by root"],
+    "tags": ["owner", "group", "root owned", "fix ownership", "permission denied"],
+    "man": "chown.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "Regular users cannot give files away, so chown almost always needs sudo. 'user:' with a trailing colon also sets the group to the user's login group (GNU).",
+    "examples": [
+      {
+        "title": "See who owns a file first",
+        "cmd": "ls -l <file>",
+        "explain": "The third and fourth columns are owner and group. Files created by 'sudo make' or 'sudo cp' end up owned by root, which is a common cause of later 'Permission denied' errors.",
+        "risk": "read"
+      },
+      {
+        "title": "Give a file back to yourself",
+        "cmd": "sudo chown \"$USER\": <file>",
+        "explain": "$USER expands to your user name; the trailing colon sets the group to your login group.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Runs as root. Make sure <file> is inside your own work directory, not a system file.",
+        "options": [["\"$USER\":", "New owner = you, group = your login group"]]
+      },
+      {
+        "title": "Reclaim a build directory created with sudo",
+        "cmd": "sudo chown -R \"$USER\": <build-dir>",
+        "explain": "Recursively changes ownership of everything below <build-dir>. Afterwards, build without sudo so it does not happen again.",
+        "risk": "destructive",
+        "root": true,
+        "warning": "Recursive ownership changes as root cannot be undone easily. Pointing this at a system directory (/, /usr, /etc, /var) can break the system. Double-check the path with ls -ld first.",
+        "options": [["-R", "Recursive"]]
+      }
+    ]
+  },
+  {
+    "id": "sudo",
+    "name": "sudo",
+    "category": "permissions",
+    "summary": "Run a single command as root (or another user), if your account is allowed to.",
+    "aliases": ["superuser", "root", "su", "admin", "run as root"],
+    "tags": ["root", "administrator", "privileges", "elevate", "permission denied"],
+    "man": "sudo.8",
+    "docs": [{ "label": "sudo project documentation", "url": "https://www.sudo.ws/docs/man/sudo.man/" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "sudo", "fedora": "sudo", "arch": "sudo", "alpine": "sudo (or doas)" }, "note": "Embedded images often have no sudo and you log in as root directly. Some distributions use doas instead." },
+    "compat": "Only prefix sudo when a command really needs it (installing packages, loading modules, editing system files). Building, compiling and running your own programs should not need root.",
+    "examples": [
+      {
+        "title": "Check what you are allowed to run",
+        "cmd": "sudo -l",
+        "explain": "Lists the sudo rules for your account. May ask for your password. 'user is not allowed to run sudo' means you need an administrator to add you.",
+        "risk": "read",
+        "root": true,
+        "warning": "Asks for your password; it only lists rules and changes nothing.",
+        "options": [["-l", "List allowed commands"]]
+      },
+      {
+        "title": "Run one command as root",
+        "cmd": "sudo <command>",
+        "explain": "Asks for YOUR password (not root's) and caches it for a few minutes. Only the command after sudo runs as root; redirections like > are still done by your shell (see tee).",
+        "risk": "modify",
+        "root": true,
+        "warning": "The command gets full control of the system. Read it completely before pressing Enter, especially anything copied from the internet."
+      },
+      {
+        "title": "Run a command as another user",
+        "cmd": "sudo -u <user> <command>",
+        "explain": "Useful for testing what a service account can access.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Acts with that user's permissions; it can still change their files.",
+        "options": [["-u", "Target user instead of root"]]
+      }
+    ]
+  },
+  {
+    "id": "id",
+    "name": "id",
+    "category": "permissions",
+    "summary": "Show your user ID, group ID and the groups you belong to.",
+    "aliases": ["groups", "whoami", "user id"],
+    "tags": ["user", "group", "uid", "gid", "dialout", "membership", "whoami"],
+    "man": "id.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "Group changes (e.g. after usermod -aG) only show up in new login sessions.",
+    "examples": [
+      {
+        "title": "Show your identity and groups",
+        "cmd": "id",
+        "explain": "uid 0 means root. Group membership decides access to devices such as /dev/ttyUSB0 (group dialout on Debian/Ubuntu, uucp on Arch).",
+        "risk": "read",
+        "test": { "expect": "^uid=\\d+" }
+      },
+      {
+        "title": "List just your group names",
+        "cmd": "id -nG",
+        "explain": "Same as the groups command.",
+        "risk": "read",
+        "options": [["-n", "Print names instead of numbers"], ["-G", "All groups"]]
+      }
+    ]
+  },
+  {
+    "id": "umask",
+    "name": "umask",
+    "category": "permissions",
+    "summary": "Show or set the default permission mask for newly created files.",
+    "aliases": ["default permissions"],
+    "tags": ["default permissions", "new files", "mask"],
+    "docs": [{ "label": "Bash manual: Bourne shell builtins (umask)", "url": "https://www.gnu.org/software/bash/manual/html_node/Bourne-Shell-Builtins.html" }],
+    "install": { "status": "builtin", "note": "Shell builtin." },
+    "compat": "The mask removes bits: with umask 022, new files get 666 - 022 = 644 and new directories 777 - 022 = 755.",
+    "examples": [
+      {
+        "title": "Show the current mask",
+        "cmd": "umask",
+        "explain": "Typical values are 0022 or 0002.",
+        "risk": "read",
+        "test": { "expect": "^0?[0-7]{3}$" }
+      },
+      {
+        "title": "Show it symbolically",
+        "cmd": "umask -S",
+        "explain": "Prints the permissions new files are allowed to have, e.g. u=rwx,g=rx,o=rx.",
+        "risk": "read",
+        "options": [["-S", "Symbolic output"]],
+        "test": { "expect": "u=rwx" }
+      }
+    ]
+  },
+  {
+    "id": "usermod",
+    "name": "usermod",
+    "category": "permissions",
+    "summary": "Modify a user account; most often used to add yourself to a group such as dialout for serial ports.",
+    "aliases": ["add user to group", "gpasswd", "serial port permission"],
+    "tags": ["group", "dialout", "uucp", "serial", "ttyusb", "plugdev", "permission denied", "docker group"],
+    "man": "usermod.8",
+    "install": { "status": "usually-installed", "packages": { "debian": "passwd", "fedora": "shadow-utils", "arch": "shadow", "alpine": "shadow" }, "note": "BusyBox systems use addgroup <user> <group> instead." },
+    "compat": "Serial devices belong to group dialout on Debian/Ubuntu/Fedora and uucp on Arch. Check with ls -l /dev/ttyUSB0.",
+    "examples": [
+      {
+        "title": "Check which group owns the serial device",
+        "cmd": "ls -l /dev/ttyUSB0",
+        "explain": "Shows something like crw-rw---- root dialout. Members of that group may read and write the port.",
+        "risk": "read"
+      },
+      {
+        "title": "Add yourself to a supplementary group",
+        "cmd": "sudo usermod -aG <group> \"$USER\"",
+        "explain": "Log out and back in (or reboot) afterwards; existing sessions keep the old group list. Then confirm with id -nG.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Always include -a. usermod -G without -a REPLACES your supplementary groups, which can remove you from the sudo/wheel group and lock you out of administration.",
+        "options": [["-a", "Append to the existing groups (only valid with -G)"], ["-G", "Supplementary group list"]]
+      }
+    ]
+  }
+]

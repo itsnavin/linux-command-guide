@@ -1,0 +1,235 @@
+[
+  {
+    "id": "ps",
+    "name": "ps",
+    "category": "processes",
+    "summary": "Snapshot of running processes with their IDs, owners, CPU and memory use.",
+    "aliases": ["process list", "running programs", "task list"],
+    "tags": ["process", "pid", "running", "memory usage", "cpu usage", "parent process"],
+    "man": "ps.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "procps", "fedora": "procps-ng", "arch": "procps-ng", "alpine": "procps (BusyBox ps by default)" }, "note": "Slim containers may lack ps entirely." },
+    "compat": "procps ps accepts both BSD style (ps aux) and POSIX style (ps -ef). BusyBox ps ignores most options and prints a simple list; use ps -o to choose columns where supported.",
+    "examples": [
+      {
+        "title": "All processes, BSD style",
+        "cmd": "ps aux",
+        "explain": "a = all users, u = user-oriented columns, x = include processes without a terminal.",
+        "output": "USER owner, PID process ID, %CPU and %MEM usage, RSS resident memory in KiB, STAT state (R running, S sleeping, D uninterruptible I/O wait, Z zombie), COMMAND command line.",
+        "risk": "read",
+        "options": [["aux", "All processes with user-oriented format"]],
+        "test": { "expect": "PID", "needs": ["ps"] }
+      },
+      {
+        "title": "Top memory users",
+        "cmd": "ps aux --sort=-%mem | head -n 10",
+        "explain": "Sorts by memory descending (the - prefix) and keeps the header plus 9 processes.",
+        "risk": "read",
+        "options": [["--sort=-%mem", "Sort by memory use, highest first (procps)"]]
+      },
+      {
+        "title": "Chosen columns for one process",
+        "cmd": "ps -o pid,ppid,stat,etime,cmd -p <pid>",
+        "explain": "PPID is the parent process ID; ETIME how long it has been running.",
+        "risk": "read",
+        "options": [["-o", "Output format: comma-separated column names"], ["-p", "Select by process ID"]]
+      }
+    ]
+  },
+  {
+    "id": "top",
+    "name": "top",
+    "category": "processes",
+    "summary": "Live, continuously updated view of CPU, memory and the busiest processes.",
+    "aliases": ["htop", "task manager", "cpu usage", "load"],
+    "tags": ["live", "cpu", "memory", "load average", "monitor", "slow system"],
+    "man": "top.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "procps", "fedora": "procps-ng", "arch": "procps-ng", "alpine": "procps (BusyBox top by default)" }, "note": "htop is a friendlier alternative you can install separately." },
+    "compat": "Interactive keys (procps top): P sort by CPU, M sort by memory, 1 show each CPU, q quit. BusyBox top has fewer keys.",
+    "examples": [
+      {
+        "title": "Open the live view",
+        "cmd": "top",
+        "explain": "The header shows uptime, load average (1, 5, 15 minutes), CPU usage split into us (user), sy (kernel), wa (waiting for I/O), and memory. Press q to quit.",
+        "risk": "read"
+      },
+      {
+        "title": "One snapshot for a log or a bug report",
+        "cmd": "top -b -n 1 | head -n 20",
+        "explain": "-b batch mode prints plain text instead of drawing the screen; -n 1 takes a single sample.",
+        "risk": "read",
+        "options": [["-b", "Batch mode (non-interactive)"], ["-n 1", "Exit after one iteration"]]
+      }
+    ]
+  },
+  {
+    "id": "kill",
+    "name": "kill",
+    "category": "processes",
+    "summary": "Send a signal to a process, normally to ask it to stop.",
+    "aliases": ["stop process", "terminate", "end task", "sigterm", "sigkill"],
+    "tags": ["stop", "terminate", "signal", "hung program", "frozen", "kill -9"],
+    "man": "kill.1",
+    "docs": [{ "label": "man 7 signal (man7.org)", "url": "https://man7.org/linux/man-pages/man7/signal.7.html" }],
+    "install": { "status": "builtin", "note": "Shell builtin; /bin/kill comes from procps or util-linux." },
+    "compat": "You can only signal your own processes unless you are root. Find the PID with pgrep or ps first.",
+    "examples": [
+      {
+        "title": "List signal names",
+        "cmd": "kill -l",
+        "explain": "SIGTERM (15) asks politely; SIGINT (2) is what Ctrl+C sends; SIGKILL (9) cannot be caught or ignored.",
+        "risk": "read",
+        "options": [["-l", "List signal names"]],
+        "test": { "expect": "TERM" }
+      },
+      {
+        "title": "Ask a process to exit",
+        "cmd": "kill <pid>",
+        "explain": "Sends SIGTERM, giving the program a chance to save data and clean up. No output means the signal was delivered; 'No such process' means the PID is gone.",
+        "risk": "destructive",
+        "warning": "Stops the program; unsaved work in it is lost. Confirm the PID belongs to the right program (ps -p <pid> -o pid,cmd).",
+        "options": [["<pid>", "Process ID from ps or pgrep"]]
+      },
+      {
+        "title": "Force-kill a process that ignores SIGTERM",
+        "cmd": "kill -9 <pid>",
+        "explain": "Last resort after kill <pid> had no effect for a few seconds. A process in state D (waiting on I/O or a driver) may not die even with -9 until the I/O completes.",
+        "risk": "destructive",
+        "warning": "SIGKILL gives the process no chance to clean up: temporary files, locks and partially written data may be left behind.",
+        "options": [["-9", "SIGKILL: immediate, cannot be caught"]]
+      }
+    ]
+  },
+  {
+    "id": "pgrep",
+    "name": "pgrep",
+    "category": "processes",
+    "summary": "Find process IDs by name (pgrep), or signal them by name (pkill).",
+    "aliases": ["pkill", "pidof", "find process"],
+    "tags": ["pid", "process name", "is it running", "kill by name"],
+    "man": "pgrep.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "procps", "fedora": "procps-ng", "arch": "procps-ng", "alpine": "procps (BusyBox pgrep by default)" } },
+    "compat": "The pattern is a regular expression matched against the process name (or full command line with -f), so short patterns can match more processes than you expect.",
+    "examples": [
+      {
+        "title": "Find processes by name with their command lines",
+        "cmd": "pgrep -a <name>",
+        "explain": "Prints PID and full command line. Exit status 1 means no process matched.",
+        "risk": "read",
+        "options": [["-a", "Show the full command line"]],
+        "test": { "before": "sleep 3 >/dev/null 2>&1 &", "vars": { "name": "sleep" }, "expect": "sleep 3", "needs": ["pgrep"] }
+      },
+      {
+        "title": "Your own processes only",
+        "cmd": "pgrep -u \"$USER\" -a <name>",
+        "explain": "Restricts matches to processes owned by you.",
+        "risk": "read",
+        "options": [["-u", "Only processes of this user"]]
+      },
+      {
+        "title": "Stop processes by name",
+        "cmd": "pkill -x <name>",
+        "explain": "-x requires the whole process name to match exactly. Run pgrep -a -x <name> first: pkill signals everything that pgrep would list.",
+        "risk": "destructive",
+        "warning": "Sends SIGTERM to EVERY matching process. Without -x, a pattern like 'sh' would also match bash, ssh and others.",
+        "options": [["-x", "Match the exact process name"]]
+      }
+    ]
+  },
+  {
+    "id": "jobs",
+    "name": "jobs",
+    "category": "processes",
+    "summary": "Run programs in the background and move them between foreground and background (jobs, fg, bg, &).",
+    "aliases": ["bg", "fg", "background", "ctrl-z", "nohup"],
+    "tags": ["background", "foreground", "suspend", "ctrl+z", "ampersand", "long running"],
+    "docs": [{ "label": "Bash manual: Job control builtins", "url": "https://www.gnu.org/software/bash/manual/html_node/Job-Control-Builtins.html" }],
+    "install": { "status": "builtin", "note": "Shell builtins (job control must be enabled, which it is in interactive shells)." },
+    "compat": "Background jobs belong to your terminal; closing it usually stops them. Use nohup, tmux or screen for work that must survive logout.",
+    "examples": [
+      {
+        "title": "Start a command in the background",
+        "cmd": "<command> &",
+        "explain": "The shell prints a job number like [1] and the PID, then gives you the prompt back. Output still appears in the terminal; redirect it to a file to avoid clutter.",
+        "risk": "read",
+        "options": [["&", "Run asynchronously in the background"]]
+      },
+      {
+        "title": "List jobs, then bring one to the foreground",
+        "cmd": "jobs -l",
+        "explain": "Shows job numbers, PIDs and states. Then fg %1 brings job 1 back; Ctrl+Z suspends the foreground job and bg resumes it in the background.",
+        "risk": "read",
+        "options": [["-l", "Include process IDs"]]
+      },
+      {
+        "title": "Keep a command running after logout",
+        "cmd": "nohup <command> > <logfile> 2>&1 &",
+        "explain": "nohup makes the command ignore the hang-up signal sent when the terminal closes. Both output streams go to <logfile>.",
+        "risk": "modify",
+        "warning": "> overwrites <logfile> if it already exists.",
+        "options": [["nohup", "Ignore SIGHUP"], ["2>&1", "Send errors to the same file"]]
+      }
+    ]
+  },
+  {
+    "id": "lsof",
+    "name": "lsof",
+    "category": "processes",
+    "summary": "List open files: which process is using a file, device, or network port.",
+    "aliases": ["open files", "device busy", "port in use", "fuser"],
+    "tags": ["port", "address already in use", "device or resource busy", "open file", "who uses"],
+    "man": "lsof.8",
+    "install": { "status": "often-missing", "packages": { "debian": "lsof", "fedora": "lsof", "arch": "lsof", "alpine": "lsof" } },
+    "compat": "Without root you only see your own processes. For ports, ss -ltnp is usually preinstalled and gives similar information.",
+    "examples": [
+      {
+        "title": "Who has this file or device open?",
+        "cmd": "lsof <path>",
+        "explain": "Explains 'Device or resource busy' when unmounting, or a serial port that will not open.",
+        "risk": "read"
+      },
+      {
+        "title": "Which process is using a TCP port?",
+        "cmd": "sudo lsof -i :<port>",
+        "explain": "Fixes 'Address already in use' by showing which program already holds the port.",
+        "risk": "read",
+        "root": true,
+        "warning": "Runs as root only so it can see other users' processes; it does not change anything.",
+        "options": [["-i :<port>", "Network files using this port"]]
+      },
+      {
+        "title": "All files opened by one process",
+        "cmd": "lsof -p <pid>",
+        "explain": "Shows libraries, log files, sockets and devices the process holds open.",
+        "risk": "read",
+        "options": [["-p", "Select by process ID"]]
+      }
+    ]
+  },
+  {
+    "id": "watch",
+    "name": "watch",
+    "category": "processes",
+    "summary": "Re-run a command every few seconds and show its output full-screen.",
+    "aliases": ["repeat command", "refresh", "monitor"],
+    "tags": ["repeat", "monitor", "refresh", "live", "periodic"],
+    "man": "watch.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "procps", "fedora": "procps-ng", "arch": "procps-ng", "alpine": "procps (BusyBox watch by default)" } },
+    "compat": "-d (highlight differences) is procps only. Press Ctrl+C to exit.",
+    "examples": [
+      {
+        "title": "Watch memory every second",
+        "cmd": "watch -n 1 free -h",
+        "explain": "Re-runs free -h every second, handy while a program is running.",
+        "risk": "read",
+        "options": [["-n 1", "Interval in seconds"]]
+      },
+      {
+        "title": "Watch the newest kernel messages while plugging in a device",
+        "cmd": "watch -d 'dmesg | tail -n 15'",
+        "explain": "Put pipelines in quotes so watch runs the whole thing. -d highlights what changed between runs. dmesg may need sudo on some distributions.",
+        "risk": "read",
+        "options": [["-d", "Highlight differences between updates"]]
+      }
+    ]
+  }
+]

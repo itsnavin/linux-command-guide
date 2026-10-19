@@ -1,0 +1,432 @@
+[
+  {
+    "id": "gcc",
+    "name": "gcc",
+    "category": "dev",
+    "summary": "The GNU C compiler: compile, link, show warnings, and produce debug builds.",
+    "aliases": ["cc", "compile c", "c compiler", "clang", "cross compiler", "arm-linux-gnueabihf-gcc", "aarch64-linux-gnu-gcc"],
+    "tags": ["compile", "c", "build", "warnings", "debug", "link", "object file", "preprocessor", "cross-compile", "embedded"],
+    "man": "gcc.1",
+    "docs": [{ "label": "GCC online documentation", "url": "https://gcc.gnu.org/onlinedocs/" }],
+    "install": { "status": "often-missing", "packages": { "debian": "build-essential (gcc, make, libc headers)", "fedora": "gcc", "arch": "base-devel", "alpine": "build-base" }, "note": "Cross compilers have prefixed names such as aarch64-linux-gnu-gcc (Debian package gcc-aarch64-linux-gnu). In Yocto, source the SDK environment script and use $CC instead, which includes the right sysroot flags." },
+    "compat": "clang accepts most of the same options. A program compiled for your PC (x86_64) will not run on an ARM board, and vice versa: check with file.",
+    "examples": [
+      {
+        "title": "Compile and link one C file with warnings and debug info",
+        "cmd": "gcc -Wall -Wextra -g -o <output> <source>.c",
+        "explain": "Produces the executable <output>; run it with ./<output>. Always read warnings: they often point at real bugs.",
+        "risk": "modify",
+        "warning": "Overwrites <output> if it already exists; never use your source file's name as <output>.",
+        "options": [["-Wall", "Enable common warnings"], ["-Wextra", "Enable extra warnings"], ["-g", "Include debug info for gdb"], ["-o", "Name of the output file (default a.out)"]],
+        "output": "No output means success. 'undefined reference to ...' is a link error (missing .c file or -l library); 'No such file or directory' for a header means its -dev/-devel package or -I path is missing.",
+        "test": { "vars": { "output": "hello", "source": "src/hello" }, "after": "./hello", "expect": "Hello, embedded world", "needs": ["gcc"] }
+      },
+      {
+        "title": "Compile to an object file only",
+        "cmd": "gcc -c -Wall <source>.c -o <source>.o",
+        "explain": "-c stops before linking. Larger programs compile each .c to .o and link them together in a final step.",
+        "risk": "modify",
+        "options": [["-c", "Compile only, do not link"]],
+        "test": { "vars": { "source": "src/hello" }, "after": "file src/hello.o", "expect": "relocatable", "needs": ["gcc", "file"] }
+      },
+      {
+        "title": "Link with a library and add a header search path",
+        "cmd": "gcc -I<include-dir> -o <output> <source>.c -l<library>",
+        "explain": "-I adds a directory searched for #include files. -lm links libm.so (math), -lpthread pthreads, etc. Put -l options after the source files.",
+        "risk": "modify",
+        "options": [["-I", "Extra include directory"], ["-l", "Link with lib<name>"]]
+      },
+      {
+        "title": "See the preprocessed source",
+        "cmd": "gcc -E <source>.c | less",
+        "explain": "Shows what the compiler really sees after #include and #define are expanded; useful for macro puzzles.",
+        "risk": "read",
+        "options": [["-E", "Run only the preprocessor"]]
+      },
+      {
+        "title": "Show which version and target you are compiling for",
+        "cmd": "gcc -v",
+        "explain": "The 'Target:' line (e.g. x86_64-linux-gnu or aarch64-linux-gnu) tells you which architecture the binaries will be for.",
+        "risk": "read",
+        "options": [["-v", "Print version and configuration (to stderr)"]]
+      }
+    ]
+  },
+  {
+    "id": "make",
+    "name": "make",
+    "category": "dev",
+    "summary": "Build programs from a Makefile, rebuilding only what changed.",
+    "aliases": ["makefile", "gmake", "build project"],
+    "tags": ["build", "makefile", "compile", "kernel module build", "clean", "parallel build"],
+    "man": "make.1",
+    "docs": [{ "label": "GNU make manual", "url": "https://www.gnu.org/software/make/manual/make.html" }],
+    "install": { "status": "often-missing", "packages": { "debian": "make (in build-essential)", "fedora": "make", "arch": "make", "alpine": "make" } },
+    "compat": "Recipe lines in a Makefile must start with a real Tab, not spaces; otherwise you get 'missing separator'. Check with cat -A Makefile (tabs show as ^I).",
+    "examples": [
+      {
+        "title": "Build the default target",
+        "cmd": "make",
+        "explain": "Runs the first target in ./Makefile. It prints each command before running it.",
+        "risk": "modify",
+        "output": "'Nothing to be done' / 'is up to date' means outputs are newer than their inputs. 'No targets specified and no makefile found' means you are in the wrong directory.",
+        "test": { "before": "cd src", "after": "./hello", "expect": "cc -Wall[\\s\\S]*Hello, embedded world", "needs": ["gcc", "make"] }
+      },
+      {
+        "title": "Build in another directory",
+        "cmd": "make -C <dir>",
+        "explain": "Kernel modules are built this way: make -C /lib/modules/$(uname -r)/build M=$PWD modules (needs the kernel headers package).",
+        "risk": "modify",
+        "options": [["-C", "Change to this directory first"]],
+        "test": { "vars": { "dir": "src" }, "after": "test -x src/hello && echo built", "expect": "^built$", "needs": ["gcc", "make"] }
+      },
+      {
+        "title": "Show what would run without running it",
+        "cmd": "make -n",
+        "explain": "Dry run: an inspect-first way to understand an unfamiliar Makefile, including what clean or install would do.",
+        "risk": "read",
+        "options": [["-n", "Print commands, do not execute"]],
+        "test": { "before": "cd src", "after": "ls", "expect": "cc -Wall", "reject": "^hello$" , "needs": ["make"] }
+      },
+      {
+        "title": "Parallel build using all CPU cores",
+        "cmd": "make -j\"$(nproc)\"",
+        "explain": "Runs independent steps at the same time. If the output is confusing, rerun without -j to see errors in order.",
+        "risk": "modify",
+        "options": [["-j", "Number of parallel jobs"]]
+      },
+      {
+        "title": "Remove build outputs",
+        "cmd": "make clean",
+        "explain": "Runs the Makefile's clean target. What it deletes is defined by the Makefile author, so check with make -n clean first in unfamiliar projects.",
+        "risk": "destructive",
+        "warning": "Deletes whatever the clean recipe says. Inspect it first with make -n clean."
+      }
+    ]
+  },
+  {
+    "id": "cmake",
+    "name": "cmake",
+    "category": "dev",
+    "summary": "Generate and run builds for projects that use CMakeLists.txt.",
+    "aliases": ["cmakelists", "ninja"],
+    "tags": ["build", "cmake", "configure", "out-of-tree build", "toolchain file", "cross-compile"],
+    "man": "cmake.1", "manSite": "debian",
+    "docs": [{ "label": "CMake documentation", "url": "https://cmake.org/cmake/help/latest/" }],
+    "install": { "status": "often-missing", "packages": { "debian": "cmake", "fedora": "cmake", "arch": "cmake", "alpine": "cmake" } },
+    "compat": "-S/-B need CMake 3.13+ and --build needs 3.15+ for -j. For cross-compiling pass -DCMAKE_TOOLCHAIN_FILE=<file>; the Yocto SDK provides one via its environment script.",
+    "examples": [
+      {
+        "title": "Configure into a separate build directory",
+        "cmd": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug",
+        "explain": "Run in the directory with CMakeLists.txt. Keeping generated files in build/ means you can delete that folder to start fresh.",
+        "risk": "modify",
+        "options": [["-S", "Source directory"], ["-B", "Build directory (created if missing)"], ["-DCMAKE_BUILD_TYPE", "Debug, Release, RelWithDebInfo or MinSizeRel"]],
+        "output": "Ends with 'Build files have been written to'. 'Could NOT find <Package>' means a development package is missing."
+      },
+      {
+        "title": "Build",
+        "cmd": "cmake --build build -j \"$(nproc)\"",
+        "explain": "Calls the underlying tool (make or ninja) for you.",
+        "risk": "modify",
+        "options": [["--build", "Build the given build directory"], ["-j", "Parallel jobs"]]
+      }
+    ]
+  },
+  {
+    "id": "gdb",
+    "name": "gdb",
+    "category": "dev",
+    "summary": "The GNU debugger: run a program step by step, inspect variables, and see where it crashed.",
+    "aliases": ["debugger", "gdb-multiarch", "segfault", "backtrace"],
+    "tags": ["debug", "breakpoint", "backtrace", "segmentation fault", "crash", "core dump", "gdbserver", "embedded"],
+    "man": "gdb.1",
+    "docs": [{ "label": "Debugging with GDB", "url": "https://sourceware.org/gdb/current/onlinedocs/gdb.html/" }],
+    "install": { "status": "often-missing", "packages": { "debian": "gdb (gdb-multiarch for other architectures)", "fedora": "gdb", "arch": "gdb", "alpine": "gdb" }, "note": "For a board, run gdbserver on the target and gdb-multiarch (or the SDK's gdb) on your PC." },
+    "compat": "Compile with -g (and ideally -O0) for readable debugging.",
+    "examples": [
+      {
+        "title": "Start a program under the debugger",
+        "cmd": "gdb --args ./<program> <arg>",
+        "explain": "Inside gdb: break main, run, next (n), step (s), print <var> (p), bt for a backtrace, quit (q).",
+        "risk": "read",
+        "options": [["--args", "Everything after the program name is passed to it as arguments"]]
+      },
+      {
+        "title": "Get a backtrace from a crash, non-interactively",
+        "cmd": "gdb -batch -ex run -ex bt ./<program>",
+        "explain": "Runs the program; if it crashes (e.g. SIGSEGV), prints the call stack showing the function and line.",
+        "risk": "read",
+        "options": [["-batch", "Exit after running the -ex commands"], ["-ex", "Run a gdb command"]],
+        "output": "Frame #0 is where it crashed; higher frames are the callers. '??' means no debug info: rebuild with -g."
+      }
+    ]
+  },
+  {
+    "id": "strace",
+    "name": "strace",
+    "category": "dev",
+    "summary": "Trace the system calls a program makes: which files it opens, what fails, and why.",
+    "aliases": ["syscall trace", "ltrace"],
+    "tags": ["debug", "system call", "open", "ioctl", "permission denied", "ENOENT", "driver test", "trace"],
+    "man": "strace.1",
+    "docs": [{ "label": "strace project", "url": "https://strace.io/" }],
+    "install": { "status": "often-missing", "packages": { "debian": "strace", "fedora": "strace", "arch": "strace", "alpine": "strace" } },
+    "compat": "Tracing processes you do not own (or attaching with -p) may need root or a relaxed kernel.yama.ptrace_scope.",
+    "examples": [
+      {
+        "title": "See which files a program tries to open",
+        "cmd": "strace -f -e trace=openat ./<program>",
+        "explain": "Great for 'file not found' mysteries: look for = -1 ENOENT next to the path it expected.",
+        "risk": "read",
+        "options": [["-f", "Also trace child processes and threads"], ["-e trace=openat", "Only show openat system calls"]],
+        "output": "Each line is call(args) = result. A negative result with a name like EACCES or ENOENT is the error the program got."
+      },
+      {
+        "title": "Trace device access to a character device",
+        "cmd": "strace -e trace=openat,ioctl,read,write ./<program>",
+        "explain": "When testing your own driver from user space, this shows exactly which calls reached it and their return values.",
+        "risk": "read",
+        "options": [["-e trace=", "Comma-separated list of syscalls to show"]]
+      },
+      {
+        "title": "Summary of syscall counts and errors",
+        "cmd": "strace -c ./<program>",
+        "explain": "Prints a table after the program exits: which calls were made, how often, and how many failed.",
+        "risk": "read",
+        "options": [["-c", "Count calls and print a summary"]]
+      }
+    ]
+  },
+  {
+    "id": "readelf",
+    "name": "readelf",
+    "category": "dev",
+    "summary": "Show ELF file details: architecture, sections, symbols and needed libraries.",
+    "aliases": ["elf header", "elf"],
+    "tags": ["elf", "binary", "architecture", "sections", "symbols", "dynamic", "needed libraries", "kernel module", ".ko"],
+    "man": "readelf.1",
+    "docs": [{ "label": "GNU binutils documentation", "url": "https://sourceware.org/binutils/docs/binutils/readelf.html" }],
+    "install": { "status": "often-missing", "packages": { "debian": "binutils", "fedora": "binutils", "arch": "binutils", "alpine": "binutils" } },
+    "compat": "readelf works on ELF files for any architecture, so it can inspect ARM binaries on an x86 PC (unlike objdump, which may need a multiarch build).",
+    "examples": [
+      {
+        "title": "Show the ELF header",
+        "cmd": "readelf -h <file>",
+        "explain": "Machine shows the target CPU; Type is EXEC/DYN (program or shared object) or REL (object file or .ko kernel module).",
+        "risk": "read",
+        "options": [["-h", "File header"]],
+        "test": { "before": "gcc -o hello src/hello.c", "vars": { "file": "hello" }, "expect": "Machine:", "needs": ["gcc", "readelf"] }
+      },
+      {
+        "title": "Which shared libraries does it need?",
+        "cmd": "readelf -d <file> | grep NEEDED",
+        "explain": "Safe alternative to ldd for untrusted binaries: it only reads the file.",
+        "risk": "read",
+        "options": [["-d", "Dynamic section"]],
+        "test": { "before": "gcc -o hello src/hello.c", "vars": { "file": "hello" }, "expect": "libc", "needs": ["gcc", "readelf"] }
+      },
+      {
+        "title": "List sections",
+        "cmd": "readelf -S <file>",
+        "explain": "Shows .text (code), .data, .bss, .rodata and their sizes; in a .ko, .modinfo holds module metadata.",
+        "risk": "read",
+        "options": [["-S", "Section headers"]]
+      }
+    ]
+  },
+  {
+    "id": "objdump",
+    "name": "objdump",
+    "category": "dev",
+    "summary": "Disassemble machine code and display object file contents.",
+    "aliases": ["disassemble", "disassembly"],
+    "tags": ["disassemble", "assembly", "elf", "binary", "debug", "sections"],
+    "man": "objdump.1",
+    "docs": [{ "label": "GNU binutils documentation", "url": "https://sourceware.org/binutils/docs/binutils/objdump.html" }],
+    "install": { "status": "often-missing", "packages": { "debian": "binutils", "fedora": "binutils", "arch": "binutils", "alpine": "binutils" }, "note": "For other architectures use the cross version, e.g. aarch64-linux-gnu-objdump." },
+    "compat": "Use the objdump matching the binary's architecture.",
+    "examples": [
+      {
+        "title": "Disassemble with source lines interleaved",
+        "cmd": "objdump -d -S <file> | less",
+        "explain": "-S shows your C next to the instructions if built with -g.",
+        "risk": "read",
+        "options": [["-d", "Disassemble executable sections"], ["-S", "Intermix source code"]]
+      },
+      {
+        "title": "Summary of section headers",
+        "cmd": "objdump -h <file>",
+        "explain": "Sizes and addresses of each section.",
+        "risk": "read",
+        "options": [["-h", "Section headers"]],
+        "test": { "before": "gcc -c -o hello.o src/hello.c", "vars": { "file": "hello.o" }, "expect": "\\.text", "needs": ["gcc", "objdump"] }
+      }
+    ]
+  },
+  {
+    "id": "nm",
+    "name": "nm",
+    "category": "dev",
+    "summary": "List symbols (functions and variables) in object files, libraries and executables.",
+    "aliases": ["symbols", "undefined reference"],
+    "tags": ["symbols", "link error", "undefined reference", "library", "elf", "exported functions"],
+    "man": "nm.1",
+    "install": { "status": "often-missing", "packages": { "debian": "binutils", "fedora": "binutils", "arch": "binutils", "alpine": "binutils" } },
+    "compat": "Letters: T = defined in code, U = undefined (needed from elsewhere), D/B = data/bss.",
+    "examples": [
+      {
+        "title": "List symbols in an object file",
+        "cmd": "nm <file>.o",
+        "explain": "Helps debug 'undefined reference': is the function defined (T) anywhere, or only used (U)?",
+        "risk": "read",
+        "test": { "before": "gcc -c -o hello.o src/hello.c", "vars": { "file": "hello" }, "expect": "T main", "needs": ["gcc", "nm"] }
+      },
+      {
+        "title": "Show only undefined symbols",
+        "cmd": "nm -u <file>",
+        "explain": "These must be provided by other objects or libraries at link time.",
+        "risk": "read",
+        "options": [["-u", "Undefined symbols only"]]
+      },
+      {
+        "title": "Dynamic symbols of a shared library, demangled",
+        "cmd": "nm -D -C <library>.so",
+        "explain": "-D reads the dynamic symbol table (what the library exports); -C makes C++ names readable.",
+        "risk": "read",
+        "options": [["-D", "Dynamic symbols"], ["-C", "Demangle C++ names"]]
+      }
+    ]
+  },
+  {
+    "id": "ldd",
+    "name": "ldd",
+    "category": "dev",
+    "summary": "Show which shared libraries a program will load, and which are missing.",
+    "aliases": ["shared libraries", "library not found"],
+    "tags": ["shared library", ".so", "not found", "dynamic linker", "dependencies"],
+    "man": "ldd.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "libc-bin", "fedora": "glibc-common", "arch": "glibc", "alpine": "musl-utils" } },
+    "compat": "ldd may run the program's dynamic loader: never use it on untrusted binaries; use readelf -d instead. It cannot inspect binaries for another architecture.",
+    "examples": [
+      {
+        "title": "List shared libraries and where they resolve",
+        "cmd": "ldd ./<program>",
+        "explain": "Each line shows a library and the path it will be loaded from.",
+        "risk": "read",
+        "warning": "Only for binaries you trust: ldd can execute code from the binary.",
+        "output": "'not found' means that library is missing or not on the search path (install it, or check LD_LIBRARY_PATH / ldconfig). 'not a dynamic executable' means it is static or for another architecture."
+      }
+    ]
+  },
+  {
+    "id": "strings",
+    "name": "strings",
+    "category": "dev",
+    "summary": "Print readable text found inside binary files.",
+    "aliases": ["binary text"],
+    "tags": ["binary", "firmware", "version string", "reverse", "inspect"],
+    "man": "strings.1",
+    "install": { "status": "often-missing", "packages": { "debian": "binutils", "fedora": "binutils", "arch": "binutils", "alpine": "binutils" } },
+    "compat": "Works on any file. Default minimum length is 4 characters.",
+    "examples": [
+      {
+        "title": "Find version strings in a binary or firmware blob",
+        "cmd": "strings <file> | grep -i version",
+        "explain": "Read-only way to peek inside compiled programs, kernel modules or firmware images.",
+        "risk": "read",
+        "output": "grep exits with status 1 and prints nothing if no line matched; that is not an error in strings."
+      },
+      {
+        "title": "Only longer strings, to cut noise",
+        "cmd": "strings -n 8 <file>",
+        "explain": "Ignores runs shorter than 8 characters, which are mostly random bytes that happen to be printable.",
+        "risk": "read",
+        "options": [["-n 8", "Minimum string length"]],
+        "test": { "before": "gcc -o hello src/hello.c", "vars": { "file": "hello" }, "expect": "Hello, embedded world", "needs": ["gcc", "strings"] }
+      }
+    ]
+  },
+  {
+    "id": "pkg-config",
+    "name": "pkg-config",
+    "category": "dev",
+    "summary": "Get the right compiler and linker flags for an installed library.",
+    "aliases": ["pkgconf", "cflags", "libs"],
+    "tags": ["library", "cflags", "linker flags", "build", "dependencies", ".pc"],
+    "man": "pkg-config.1", "manSite": "debian",
+    "install": { "status": "often-missing", "packages": { "debian": "pkg-config (pkgconf)", "fedora": "pkgconf-pkg-config", "arch": "pkgconf", "alpine": "pkgconf" }, "note": "Libraries only provide .pc files in their development packages (-dev / -devel)." },
+    "compat": "When cross-compiling, PKG_CONFIG_SYSROOT_DIR / PKG_CONFIG_PATH must point at the target sysroot (the Yocto SDK sets these).",
+    "examples": [
+      {
+        "title": "Compile against a library using its flags",
+        "cmd": "gcc -o <output> <source>.c $(pkg-config --cflags --libs <library>)",
+        "explain": "The $( ) is replaced by flags like -I/usr/include/libusb-1.0 -lusb-1.0. Leave it unquoted here so the flags split into separate words.",
+        "risk": "modify",
+        "options": [["--cflags", "Include and define flags"], ["--libs", "Linker flags"]],
+        "output": "'Package <name> was not found' means the -dev/-devel package is missing or PKG_CONFIG_PATH is wrong."
+      },
+      {
+        "title": "Is the library available, and which version?",
+        "cmd": "pkg-config --modversion <library>",
+        "explain": "Find the right name with pkg-config --list-all | grep -i <word>.",
+        "risk": "read",
+        "options": [["--modversion", "Print the library version"]]
+      }
+    ]
+  },
+  {
+    "id": "git",
+    "name": "git",
+    "category": "dev",
+    "summary": "Version control: clone, check status, view changes and history, commit.",
+    "aliases": ["version control", "clone repository"],
+    "tags": ["git", "clone", "commit", "diff", "log", "branch", "source", "patch", "kernel source"],
+    "man": "git.1",
+    "docs": [{ "label": "Git documentation", "url": "https://git-scm.com/docs" }],
+    "install": { "status": "often-missing", "packages": { "debian": "git", "fedora": "git", "arch": "git", "alpine": "git" } },
+    "compat": "Same commands on all distributions. Large repos like the Linux kernel: --depth 1 saves time and space.",
+    "examples": [
+      {
+        "title": "Clone a repository (shallow)",
+        "cmd": "git clone --depth 1 <url>",
+        "explain": "Creates a new directory named after the repo with only the latest snapshot.",
+        "risk": "modify",
+        "options": [["--depth 1", "Only the latest commit, not full history"]]
+      },
+      {
+        "title": "See what changed",
+        "cmd": "git status",
+        "explain": "Shows the branch, modified files, staged files and untracked files. Run it often.",
+        "risk": "read",
+        "test": { "before": "git init -q . && git add notes.txt", "expect": "new file:\\s+notes\\.txt", "needs": ["git"] }
+      },
+      {
+        "title": "Show unstaged changes line by line",
+        "cmd": "git diff",
+        "explain": "Lines starting with - were removed, + added. git diff --staged shows what will be committed.",
+        "risk": "read"
+      },
+      {
+        "title": "Compact history",
+        "cmd": "git log --oneline -n 20",
+        "explain": "One line per commit: short hash and subject.",
+        "risk": "read",
+        "options": [["--oneline", "Short format"], ["-n 20", "Last 20 commits"]]
+      },
+      {
+        "title": "Stage and commit",
+        "cmd": "git add <file> && git commit -m \"<message>\"",
+        "explain": "&& runs the commit only if git add succeeded. Commits stay local until you git push.",
+        "risk": "modify"
+      },
+      {
+        "title": "Discard local changes to a file",
+        "cmd": "git restore -- <file>",
+        "explain": "Resets the file to the last committed version. -- ends options so a file name starting with - is safe.",
+        "risk": "destructive",
+        "warning": "Uncommitted edits to <file> are lost permanently; git cannot recover them. Check git diff -- <file> first."
+      }
+    ]
+  }
+]

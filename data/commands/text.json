@@ -1,0 +1,254 @@
+[
+  {
+    "id": "sort",
+    "name": "sort",
+    "category": "text",
+    "summary": "Sort lines alphabetically, numerically, by human-readable size, or by a chosen column.",
+    "aliases": ["order lines"],
+    "tags": ["sort", "order", "numeric", "column", "csv", "biggest", "top", "unique"],
+    "man": "sort.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "Ordering depends on your locale; prefix LC_ALL=C for plain byte order. -h is supported by GNU and recent BusyBox.",
+    "examples": [
+      {
+        "title": "Sort lines and drop duplicates",
+        "cmd": "sort -u <file>",
+        "explain": "Prints the sorted result; the file itself is not changed.",
+        "risk": "read",
+        "options": [["-u", "Output only the first of equal lines"]],
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^apple\\nbanana\\ncherry" }
+      },
+      {
+        "title": "Sort a CSV by its third column, numerically, largest first",
+        "cmd": "sort -t, -k3,3nr data.csv",
+        "explain": "-t, sets the field separator to a comma; -k3,3 sorts only by field 3; n compares as numbers (so 10 > 9), r reverses. The header line is sorted too; skip it with tail -n +2 data.csv | sort ...",
+        "risk": "read",
+        "options": [["-t,", "Use comma as field separator"], ["-k3,3nr", "Key = field 3 only, numeric, reversed"]],
+        "test": { "expect": "^bob,ops,8" }
+      },
+      {
+        "title": "Biggest directories first",
+        "cmd": "du -sh -- * | sort -rh | head -n 10",
+        "explain": "-h understands sizes like 4.0K, 12M and 1.1G. -- protects against file names that start with a dash.",
+        "risk": "read",
+        "options": [["-h", "Compare human-readable sizes"], ["-r", "Reverse: largest first"]],
+        "test": { "expect": "big" }
+      }
+    ]
+  },
+  {
+    "id": "uniq",
+    "name": "uniq",
+    "category": "text",
+    "summary": "Collapse or count repeated adjacent lines (usually after sort).",
+    "aliases": ["count duplicates", "unique lines"],
+    "tags": ["duplicates", "count", "frequency", "histogram"],
+    "man": "uniq.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "uniq only compares neighbouring lines, so unsorted input gives surprising results. Always sort first.",
+    "examples": [
+      {
+        "title": "Count how often each line occurs",
+        "cmd": "sort <file> | uniq -c | sort -rn",
+        "explain": "A classic pipeline: sort groups identical lines, uniq -c counts each group, sort -rn puts the most frequent first. Great for summarising log messages.",
+        "risk": "read",
+        "options": [["-c", "Prefix lines with their count"], ["-rn", "sort: numeric, reversed"]],
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^\\s*2 (apple|banana)" }
+      },
+      {
+        "title": "Show only lines that appear more than once",
+        "cmd": "sort <file> | uniq -d",
+        "explain": "Prints one copy of each duplicated line.",
+        "risk": "read",
+        "options": [["-d", "Only print duplicated lines"]],
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^apple\\nbanana$" }
+      }
+    ]
+  },
+  {
+    "id": "cut",
+    "name": "cut",
+    "category": "text",
+    "summary": "Extract columns (fields) or character ranges from each line.",
+    "aliases": ["columns", "extract field"],
+    "tags": ["column", "field", "csv", "delimiter", "extract"],
+    "man": "cut.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "cut handles a single-character delimiter only and does not understand quoted CSV fields. For whitespace-separated columns use awk.",
+    "examples": [
+      {
+        "title": "Take fields 1 and 3 from a CSV",
+        "cmd": "cut -d, -f1,3 data.csv",
+        "explain": "-d sets the delimiter, -f picks fields (ranges like 2-4 work too).",
+        "risk": "read",
+        "options": [["-d,", "Delimiter is a comma"], ["-f1,3", "Fields 1 and 3"]],
+        "test": { "expect": "^name,cores\\nalice,4" }
+      },
+      {
+        "title": "Usernames from /etc/passwd",
+        "cmd": "cut -d: -f1 /etc/passwd",
+        "explain": "/etc/passwd is colon-separated and readable by everyone; field 1 is the user name. It contains no passwords on modern systems.",
+        "risk": "read",
+        "options": [["-d:", "Delimiter is a colon"], ["-f1", "First field"]],
+        "test": { "expect": "^root$" }
+      }
+    ]
+  },
+  {
+    "id": "tr",
+    "name": "tr",
+    "category": "text",
+    "summary": "Translate or delete characters, e.g. change case or strip Windows carriage returns.",
+    "aliases": ["translate", "dos2unix", "uppercase", "lowercase"],
+    "tags": ["case", "convert", "crlf", "windows line endings", "carriage return", "bad interpreter", "delete characters"],
+    "man": "tr.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "tr only reads standard input; it never takes a file name. Use < file or a pipe.",
+    "examples": [
+      {
+        "title": "Convert to upper case",
+        "cmd": "tr 'a-z' 'A-Z' < <file>",
+        "explain": "Each character of the first set is replaced by the matching one in the second set.",
+        "risk": "read",
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^APPLE" }
+      },
+      {
+        "title": "Strip Windows line endings into a new file",
+        "cmd": "tr -d '\\r' < <input-file> > <output-file>",
+        "explain": "Fixes scripts edited on Windows that fail with '/bin/bash^M: bad interpreter' or '$'\\r': command not found'. Writes to a NEW file; check it, then replace the original.",
+        "risk": "modify",
+        "warning": "Never use the same file for input and output: the shell empties the output file before tr reads it, losing the contents.",
+        "options": [["-d", "Delete the listed characters"], ["'\\r'", "Carriage return character"]],
+        "test": { "before": "printf 'a\\r\\nb\\r\\n' > crlf.txt", "vars": { "input-file": "crlf.txt", "output-file": "lf.txt" }, "after": "od -c lf.txt", "reject": "\\\\r" }
+      },
+      {
+        "title": "Squeeze repeated spaces",
+        "cmd": "<command> | tr -s ' '",
+        "explain": "Replaces runs of spaces with a single space, which makes column-aligned output easier to cut.",
+        "risk": "read",
+        "options": [["-s", "Squeeze repeated characters into one"]]
+      }
+    ]
+  },
+  {
+    "id": "sed",
+    "name": "sed",
+    "category": "text",
+    "summary": "Stream editor: print line ranges, search-and-replace, or delete lines, optionally editing files in place.",
+    "aliases": ["replace text", "search and replace", "substitute"],
+    "tags": ["replace", "substitute", "edit file", "in place", "delete lines", "print lines", "regex"],
+    "man": "sed.1",
+    "docs": [{ "label": "GNU sed manual", "url": "https://www.gnu.org/software/sed/manual/sed.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "sed", "fedora": "sed", "arch": "sed", "alpine": "sed" } },
+    "compat": "-i is not POSIX. GNU and BusyBox accept -i or -i.bak; macOS/BSD sed requires an argument (-i ''). Without -i, sed only prints and never changes the file.",
+    "examples": [
+      {
+        "title": "Print a range of lines",
+        "cmd": "sed -n '3,5p' <file>",
+        "explain": "-n turns off automatic printing, and 3,5p prints lines 3 to 5. Useful for looking at the code around a compiler error.",
+        "risk": "read",
+        "options": [["-n", "Do not print every line automatically"], ["3,5p", "Print lines 3 through 5"]],
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^apple\\nTODO.*\\ncherry$" }
+      },
+      {
+        "title": "Preview a replacement",
+        "cmd": "sed 's/apple/orange/g' <file>",
+        "explain": "s/old/new/g replaces every match on each line (without g only the first per line). The result goes to the terminal; the file is unchanged. Use this before -i.",
+        "risk": "read",
+        "options": [["s/old/new/g", "Substitute; g = all matches in the line"]],
+        "test": { "vars": { "file": "notes.txt" }, "expect": "^orange$" }
+      },
+      {
+        "title": "Edit a file in place, keeping a backup",
+        "cmd": "sed -i.bak 's/apple/orange/g' <file>",
+        "explain": "Changes the file and saves the original as <file>.bak. Compare with diff -u <file>.bak <file>.",
+        "risk": "modify",
+        "warning": "The file is rewritten. Run the same expression without -i first and check the output; keep the .bak until you have verified the result.",
+        "options": [["-i.bak", "Edit in place and save a backup with the .bak suffix"]],
+        "test": { "vars": { "file": "notes.txt" }, "after": "grep -c orange notes.txt; ls notes.txt.bak", "expect": "^2\\nnotes\\.txt\\.bak" }
+      },
+      {
+        "title": "Delete comment lines from the output",
+        "cmd": "sed '/^#/d' <file>",
+        "explain": "/pattern/d deletes lines matching the regular expression; here lines starting with #.",
+        "risk": "read",
+        "options": [["/^#/d", "Delete lines that start with #"]]
+      }
+    ]
+  },
+  {
+    "id": "awk",
+    "name": "awk",
+    "category": "text",
+    "summary": "Pattern-scanning language for columns: print fields, filter rows, sum values.",
+    "aliases": ["gawk", "mawk", "columns", "sum column"],
+    "tags": ["column", "field", "sum", "filter", "report", "csv", "whitespace"],
+    "man": "gawk.1",
+    "docs": [{ "label": "GNU awk user's guide", "url": "https://www.gnu.org/software/gawk/manual/gawk.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "mawk (default) or gawk", "fedora": "gawk", "arch": "gawk", "alpine": "gawk (BusyBox awk by default)" } },
+    "compat": "The examples here use only POSIX awk features, so they work with gawk, mawk and BusyBox awk.",
+    "examples": [
+      {
+        "title": "Print the first column of whitespace-separated output",
+        "cmd": "<command> | awk '{print $1}'",
+        "explain": "awk splits each line on runs of spaces/tabs; $1 is the first field, $NF the last. Single quotes stop the shell from treating $1 as a shell variable.",
+        "risk": "read",
+        "options": [["$1", "First field ($0 is the whole line)"]]
+      },
+      {
+        "title": "Filter CSV rows by a column value",
+        "cmd": "awk -F, '$2 == \"dev\" {print $1}' data.csv",
+        "explain": "-F, splits on commas. The pattern before { } chooses which lines the action runs on.",
+        "risk": "read",
+        "options": [["-F,", "Field separator is a comma"]],
+        "test": { "expect": "^alice\\ncarol$" }
+      },
+      {
+        "title": "Sum a column",
+        "cmd": "awk -F, 'NR > 1 {sum += $3} END {print sum}' data.csv",
+        "explain": "NR is the line number; NR > 1 skips the header. END runs after the last line.",
+        "risk": "read",
+        "options": [["NR", "Current record (line) number"], ["END", "Block executed after all input"]],
+        "test": { "expect": "^14$" }
+      }
+    ]
+  },
+  {
+    "id": "tee",
+    "name": "tee",
+    "category": "text",
+    "summary": "Copy a pipe's data to a file while still showing it on screen; also the right way to write a root-owned file.",
+    "aliases": ["save output", "log output"],
+    "tags": ["save output", "log build", "pipe", "append", "sudo redirect", "write root file"],
+    "man": "tee.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "coreutils", "fedora": "coreutils", "arch": "coreutils", "alpine": "coreutils" } },
+    "compat": "Portable.",
+    "examples": [
+      {
+        "title": "Save build output while watching it",
+        "cmd": "make 2>&1 | tee build.log",
+        "explain": "2>&1 merges error messages into the normal output so both reach the pipe. Note: the pipeline's exit status is tee's, not make's; in Bash use set -o pipefail or check ${PIPESTATUS[0]}.",
+        "risk": "modify",
+        "warning": "tee without -a overwrites build.log each time.",
+        "options": [["2>&1", "Redirect stderr to wherever stdout goes"], ["|", "Pipe into tee"]]
+      },
+      {
+        "title": "Append instead of overwrite",
+        "cmd": "echo 'run finished' | tee -a run.log",
+        "explain": "-a adds to the end of the file, like >>.",
+        "risk": "modify",
+        "options": [["-a", "Append to the file"]],
+        "test": { "after": "cat run.log", "expect": "run finished" }
+      },
+      {
+        "title": "Append a line to a root-owned file",
+        "cmd": "echo '<line>' | sudo tee -a <file>",
+        "explain": "sudo echo text >> file does NOT work: the >> redirection is done by your own unprivileged shell before sudo runs. Here only tee runs as root and opens the file.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Writes to a system file as root. Back up the file first (sudo cp <file> <file>.bak) and double-check the file name; tee without -a would replace the whole file.",
+        "options": [["-a", "Append rather than overwrite"], ["sudo", "Run tee with root privileges"]]
+      }
+    ]
+  }
+]

@@ -1,0 +1,204 @@
+[
+  {
+    "id": "apt",
+    "name": "apt",
+    "category": "packages",
+    "summary": "Search, install, upgrade and remove software on Debian, Ubuntu and derivatives.",
+    "aliases": ["apt-get", "apt-cache", "install package ubuntu", "install package debian"],
+    "tags": ["install", "package", "ubuntu", "debian", "update", "upgrade", "remove", "search package", "build-essential"],
+    "docs": [{ "label": "apt(8) on manpages.debian.org", "url": "https://manpages.debian.org/stable/apt/apt.8.en.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "apt" }, "note": "Only on Debian-family systems. Yocto/Buildroot images normally have no package manager: software is added to the image recipe at build time (e.g. IMAGE_INSTALL in Yocto)." },
+    "compat": "apt is meant for interactive use; scripts traditionally use apt-get. Package names differ between distributions.",
+    "examples": [
+      {
+        "title": "Search for a package",
+        "cmd": "apt search <keyword>",
+        "explain": "Searches names and descriptions in the local package lists. Does not need root.",
+        "risk": "read"
+      },
+      {
+        "title": "Show details about a package",
+        "cmd": "apt show <package>",
+        "explain": "Version, size, dependencies and description. Check this before installing.",
+        "risk": "read"
+      },
+      {
+        "title": "Refresh the package lists",
+        "cmd": "sudo apt update",
+        "explain": "Downloads the latest lists of available packages. Changes nothing installed. 'Unable to locate package' often just means you forgot this step.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Needs root and network access. Only reads remote lists; installed software is unchanged."
+      },
+      {
+        "title": "Install a package",
+        "cmd": "sudo apt install <package>",
+        "explain": "Shows the packages that will be installed and asks for confirmation. Read that list before answering Y. For C development the usual starting point is build-essential.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Installs software system-wide as root. Only install packages from repositories you trust."
+      },
+      {
+        "title": "Upgrade installed packages",
+        "cmd": "sudo apt upgrade",
+        "explain": "Installs newer versions of what you already have, after sudo apt update.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Changes many system packages at once and may restart services. Avoid in the middle of important work; read the summary before confirming."
+      },
+      {
+        "title": "Remove a package",
+        "cmd": "sudo apt remove <package>",
+        "explain": "Removes the package but keeps its system-wide configuration files (purge removes those too).",
+        "risk": "destructive",
+        "root": true,
+        "warning": "apt may also remove packages that depend on this one. Read the list it prints; if it contains things like your desktop or network manager, answer n."
+      }
+    ]
+  },
+  {
+    "id": "dpkg",
+    "name": "dpkg",
+    "category": "packages",
+    "summary": "Low-level Debian package tool: which package owns a file, and what files a package installed.",
+    "aliases": ["dpkg-query", "which package provides file"],
+    "tags": ["package owner", "installed files", "installed packages", "debian", "ubuntu", "version installed"],
+    "man": "dpkg.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "dpkg" }, "note": "Debian-family only. On RPM systems the equivalent is rpm -qf <file> and rpm -ql <package>; on Arch pacman -Qo and pacman -Ql." },
+    "compat": "dpkg -S only finds files of installed packages. To search packages you have not installed, use apt-file (package apt-file).",
+    "examples": [
+      {
+        "title": "Which installed package provides this file?",
+        "cmd": "dpkg -S <path>",
+        "explain": "For example, dpkg -S /usr/bin/readelf answers binutils-... packages.",
+        "risk": "read",
+        "options": [["-S", "Search installed packages for a file path"]]
+      },
+      {
+        "title": "List files installed by a package",
+        "cmd": "dpkg -L <package>",
+        "explain": "Shows where headers, libraries and binaries ended up, e.g. dpkg -L libusb-1.0-0-dev.",
+        "risk": "read",
+        "options": [["-L", "List files of an installed package"]]
+      },
+      {
+        "title": "Is a package installed, and which version?",
+        "cmd": "dpkg -l '<pattern>'",
+        "explain": "Lines starting with ii are installed. Quote patterns containing *.",
+        "risk": "read",
+        "options": [["-l", "List packages matching the pattern"]]
+      }
+    ]
+  },
+  {
+    "id": "dnf",
+    "name": "dnf",
+    "category": "packages",
+    "summary": "Search, install, upgrade and remove software on Fedora, RHEL, CentOS Stream and similar.",
+    "aliases": ["yum", "rpm", "install package fedora"],
+    "tags": ["install", "package", "fedora", "rhel", "centos", "rocky", "update", "provides", "search package"],
+    "docs": [{ "label": "DNF command reference", "url": "https://dnf.readthedocs.io/en/latest/command_ref.html" }],
+    "install": { "status": "usually-installed", "packages": { "fedora": "dnf" }, "note": "Only on Fedora/RHEL-family systems. Older releases use yum with mostly the same sub-commands." },
+    "compat": "Package names often differ from Debian: e.g. development headers end in -devel instead of -dev.",
+    "examples": [
+      {
+        "title": "Search for a package",
+        "cmd": "dnf search <keyword>",
+        "explain": "Searches names and summaries. May download fresh metadata first.",
+        "risk": "read"
+      },
+      {
+        "title": "Find which package provides a file",
+        "cmd": "dnf provides '*/<file-name>'",
+        "explain": "Works for files of packages you have not installed yet, e.g. a missing header.",
+        "risk": "read"
+      },
+      {
+        "title": "Install a package",
+        "cmd": "sudo dnf install <package>",
+        "explain": "Prints the transaction summary and asks for confirmation. For C development, a common start is sudo dnf install gcc make.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Installs software system-wide as root. Read the transaction summary before confirming."
+      },
+      {
+        "title": "Upgrade the system",
+        "cmd": "sudo dnf upgrade",
+        "explain": "Refreshes metadata and upgrades all installed packages.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Changes many packages at once; a kernel update needs a reboot to take effect."
+      }
+    ]
+  },
+  {
+    "id": "pacman",
+    "name": "pacman",
+    "category": "packages",
+    "summary": "Arch Linux package manager: sync, search, install and query packages.",
+    "aliases": ["arch install package", "manjaro"],
+    "tags": ["install", "package", "arch", "manjaro", "upgrade", "search package", "file owner"],
+    "docs": [{ "label": "pacman(8) on man.archlinux.org", "url": "https://man.archlinux.org/man/pacman.8" }],
+    "install": { "status": "usually-installed", "packages": { "arch": "pacman" }, "note": "Only on Arch and derivatives." },
+    "compat": "Arch does not support partial upgrades: do not run pacman -Sy <package> alone; upgrade the whole system with -Syu, then install.",
+    "examples": [
+      {
+        "title": "Search the repositories",
+        "cmd": "pacman -Ss <keyword>",
+        "explain": "-S = sync (repository) operations, -s = search.",
+        "risk": "read",
+        "options": [["-Ss", "Search remote repositories"]]
+      },
+      {
+        "title": "Which package owns a file?",
+        "cmd": "pacman -Qo <path>",
+        "explain": "-Q queries the local database of installed packages; -o asks for the owner of a file.",
+        "risk": "read",
+        "options": [["-Qo", "Query owner of a file"]]
+      },
+      {
+        "title": "Upgrade everything, then install",
+        "cmd": "sudo pacman -Syu <package>",
+        "explain": "-y refreshes package lists, -u upgrades all packages, then <package> is installed, keeping the system consistent.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Performs a full system upgrade as root. Read the package list before confirming and check the Arch news for manual steps."
+      }
+    ]
+  },
+  {
+    "id": "apk",
+    "name": "apk",
+    "category": "packages",
+    "summary": "Alpine Linux package manager, common in containers and small systems.",
+    "aliases": ["alpine install package", "apk add"],
+    "tags": ["install", "package", "alpine", "docker", "container", "musl"],
+    "docs": [{ "label": "Working with apk (Alpine user handbook)", "url": "https://docs.alpinelinux.org/user-handbook/0.1a/Working/apk.html" }],
+    "install": { "status": "usually-installed", "packages": { "alpine": "apk-tools" }, "note": "Only on Alpine. Alpine uses musl libc and BusyBox, so some GNU options and glibc-built binaries behave differently." },
+    "compat": "Commands below need root: in containers you often already are root; otherwise prefix doas or sudo.",
+    "examples": [
+      {
+        "title": "Search for a package",
+        "cmd": "apk search <keyword>",
+        "explain": "Searches the package index. Run apk update first if results look stale.",
+        "risk": "read"
+      },
+      {
+        "title": "Install packages",
+        "cmd": "apk add <package>",
+        "explain": "Installs the package and its dependencies. For C development: apk add build-base.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Must run as root and changes the system. In a Dockerfile, prefer apk add --no-cache to keep images small."
+      },
+      {
+        "title": "Remove a package",
+        "cmd": "apk del <package>",
+        "explain": "Removes the package and dependencies nothing else needs.",
+        "risk": "destructive",
+        "root": true,
+        "warning": "Removes software as root. Check what else depends on it before removing."
+      }
+    ]
+  }
+]

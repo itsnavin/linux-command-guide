@@ -1,0 +1,340 @@
+[
+  {
+    "id": "ip",
+    "name": "ip",
+    "category": "network",
+    "summary": "Show and configure network interfaces, IP addresses and routes (replaces ifconfig and route).",
+    "aliases": ["ifconfig", "ip address", "ip addr", "route", "my ip"],
+    "tags": ["ip address", "interface", "network", "route", "gateway", "eth0", "wlan0", "link up"],
+    "man": "ip.8",
+    "docs": [{ "label": "man ip-address (man7.org)", "url": "https://man7.org/linux/man-pages/man8/ip-address.8.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "iproute2", "fedora": "iproute", "arch": "iproute2", "alpine": "iproute2 (BusyBox ip by default)" } },
+    "compat": "ifconfig (net-tools) is deprecated and missing on many systems. Changes made with ip are temporary; NetworkManager, systemd-networkd or ifupdown own the permanent configuration.",
+    "examples": [
+      {
+        "title": "Show addresses on all interfaces",
+        "cmd": "ip addr",
+        "explain": "Look for 'inet' (IPv4) and 'inet6' lines under each interface. 'state UP' means the link is up; lo is the loopback interface (127.0.0.1).",
+        "risk": "read",
+        "test": { "expect": "lo", "needs": ["ip"] }
+      },
+      {
+        "title": "Compact one-line-per-interface view",
+        "cmd": "ip -br addr",
+        "explain": "Brief output: name, state, addresses. Quick to scan on a board with several interfaces.",
+        "risk": "read",
+        "options": [["-br", "Brief output"]],
+        "test": { "expect": "^lo\\s", "needs": ["ip"] }
+      },
+      {
+        "title": "Show the routing table and default gateway",
+        "cmd": "ip route",
+        "explain": "The 'default via X' line is your gateway. No default route means you can reach the local network but not the internet.",
+        "risk": "read"
+      },
+      {
+        "title": "Bring an interface up",
+        "cmd": "sudo ip link set <interface> up",
+        "explain": "Enables the link (e.g. eth0). It does not assign an address; DHCP or a static address is configured separately.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Changing interfaces on a remote machine can cut your own SSH connection. Use a local console when experimenting."
+      }
+    ]
+  },
+  {
+    "id": "ss",
+    "name": "ss",
+    "category": "network",
+    "summary": "List sockets: which ports are listening and which connections are open (replaces netstat).",
+    "aliases": ["netstat", "listening ports", "open ports", "port in use"],
+    "tags": ["port", "listening", "socket", "tcp", "udp", "connections", "address already in use", "server"],
+    "man": "ss.8",
+    "install": { "status": "usually-installed", "packages": { "debian": "iproute2", "fedora": "iproute", "arch": "iproute2", "alpine": "iproute2" }, "note": "BusyBox systems often only have netstat." },
+    "compat": "Process names (-p) for other users' sockets are only shown to root. On BusyBox, netstat -ltn gives similar output.",
+    "examples": [
+      {
+        "title": "Listening TCP ports",
+        "cmd": "ss -ltn",
+        "explain": "Local Address 0.0.0.0:22 or [::]:22 = listening on all interfaces; 127.0.0.1:631 = only reachable from this machine.",
+        "risk": "read",
+        "options": [["-l", "Listening sockets only"], ["-t", "TCP"], ["-n", "Numeric ports, no name lookup"]],
+        "test": { "expect": "Local Address", "needs": ["ss"] }
+      },
+      {
+        "title": "Listening ports with the owning process",
+        "cmd": "sudo ss -ltnup",
+        "explain": "Adds UDP (-u) and the process name/PID (-p). Answers 'what program is listening on port 8080?'.",
+        "risk": "read",
+        "root": true,
+        "warning": "sudo is only needed to see processes of other users; the command does not change anything.",
+        "options": [["-u", "Include UDP"], ["-p", "Show process using the socket"]]
+      },
+      {
+        "title": "Established TCP connections",
+        "cmd": "ss -tn state established",
+        "explain": "Shows current connections with local and remote address:port.",
+        "risk": "read",
+        "options": [["state established", "Filter by TCP state"]]
+      }
+    ]
+  },
+  {
+    "id": "ping",
+    "name": "ping",
+    "category": "network",
+    "summary": "Check whether a host is reachable and how long round trips take.",
+    "aliases": ["reachability", "network test", "connectivity"],
+    "tags": ["connectivity", "latency", "network down", "reachable", "dns test"],
+    "man": "ping.8",
+    "install": { "status": "usually-installed", "packages": { "debian": "iputils-ping", "fedora": "iputils", "arch": "iputils", "alpine": "iputils (BusyBox ping by default)" } },
+    "compat": "Many networks and hosts block ICMP, so no reply does not always mean the host is down. Without -c, Linux ping runs until Ctrl+C.",
+    "examples": [
+      {
+        "title": "Send four pings",
+        "cmd": "ping -c 4 <host>",
+        "explain": "Each reply shows time= in milliseconds; the summary shows packet loss. 'Name or service not known' is a DNS problem; 'Network is unreachable' means no route.",
+        "risk": "read",
+        "options": [["-c 4", "Stop after 4 packets"]]
+      },
+      {
+        "title": "Separate DNS problems from connectivity problems",
+        "cmd": "ping -c 2 <ip-address>",
+        "explain": "If pinging an IP address works but a host name fails, the network is fine and name resolution (DNS) is the problem.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "curl",
+    "name": "curl",
+    "category": "network",
+    "summary": "Transfer data from or to a URL; test HTTP APIs and download files.",
+    "aliases": ["http request", "download", "api test"],
+    "tags": ["http", "https", "download", "api", "rest", "headers", "status code"],
+    "man": "curl.1",
+    "docs": [{ "label": "curl documentation", "url": "https://curl.se/docs/manpage.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "curl", "fedora": "curl", "arch": "curl", "alpine": "curl" }, "note": "Missing in some minimal images; BusyBox provides wget instead." },
+    "compat": "Never pipe a downloaded script straight into a shell (curl ... | sh) without reading it first.",
+    "examples": [
+      {
+        "title": "Download a file, keeping its remote name",
+        "cmd": "curl -fLO <url>",
+        "explain": "-O saves to a file named like the last part of the URL; -L follows redirects; -f fails on HTTP errors instead of saving the error page.",
+        "risk": "modify",
+        "warning": "Overwrites a local file with the same name. Verify the published checksum afterwards (sha256sum <file>).",
+        "options": [["-f", "Fail on HTTP errors (4xx/5xx)"], ["-L", "Follow redirects"], ["-O", "Save with the remote file name"]]
+      },
+      {
+        "title": "Show only the response headers",
+        "cmd": "curl -sI <url>",
+        "explain": "The first line has the status code (200 OK, 404 Not Found, 301 redirect).",
+        "risk": "read",
+        "options": [["-s", "Silent: no progress bar"], ["-I", "HEAD request: headers only"]]
+      },
+      {
+        "title": "Send JSON to an API",
+        "cmd": "curl -sS -X POST -H 'Content-Type: application/json' -d '{\"name\":\"test\"}' <url>",
+        "explain": "-d sends the body; -H adds a header. Single quotes keep the JSON's double quotes intact.",
+        "risk": "modify",
+        "warning": "POST requests usually change data on the server. Point it at a test endpoint you control.",
+        "options": [["-X POST", "HTTP method"], ["-H", "Extra request header"], ["-d", "Request body"], ["-sS", "Silent but still show errors"]]
+      }
+    ]
+  },
+  {
+    "id": "wget",
+    "name": "wget",
+    "category": "network",
+    "summary": "Download files over HTTP/HTTPS/FTP, with resume support.",
+    "aliases": ["download file"],
+    "tags": ["download", "resume", "http", "ftp", "mirror"],
+    "man": "wget.1",
+    "docs": [{ "label": "GNU Wget manual", "url": "https://www.gnu.org/software/wget/manual/wget.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "wget", "fedora": "wget", "arch": "wget", "alpine": "wget (BusyBox wget by default)" } },
+    "compat": "BusyBox wget supports basic downloads and -O, -c, -q; many GNU options are missing.",
+    "examples": [
+      {
+        "title": "Download a file",
+        "cmd": "wget <url>",
+        "explain": "Saves into the current directory. If the name exists, GNU wget saves as name.1 instead of overwriting.",
+        "risk": "modify"
+      },
+      {
+        "title": "Resume an interrupted download",
+        "cmd": "wget -c <url>",
+        "explain": "Continues a partial file instead of starting over, useful for large SDK or image downloads.",
+        "risk": "modify",
+        "options": [["-c", "Continue a partially downloaded file"]]
+      },
+      {
+        "title": "Choose the output file name",
+        "cmd": "wget -O <file> <url>",
+        "explain": "-O - writes to standard output instead.",
+        "risk": "modify",
+        "warning": "-O overwrites <file> if it exists.",
+        "options": [["-O", "Write the download to this file"]]
+      }
+    ]
+  },
+  {
+    "id": "ssh",
+    "name": "ssh",
+    "category": "network",
+    "summary": "Open a secure shell on a remote machine or board, or run one command there.",
+    "aliases": ["remote login", "secure shell", "openssh"],
+    "tags": ["remote", "login", "board", "target", "raspberry pi", "port", "key"],
+    "man": "ssh.1",
+    "docs": [{ "label": "OpenSSH manual pages", "url": "https://www.openssh.com/manual.html" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "openssh-client", "fedora": "openssh-clients", "arch": "openssh", "alpine": "openssh-client" }, "note": "Embedded targets often run Dropbear as a small SSH server." },
+    "compat": "The first connection asks you to confirm the host key fingerprint. 'REMOTE HOST IDENTIFICATION HAS CHANGED' after reflashing a board is expected; remove the old key with ssh-keygen -R <host>. On any other machine treat it as a possible attack.",
+    "examples": [
+      {
+        "title": "Log in to a remote machine",
+        "cmd": "ssh <user>@<host>",
+        "explain": "Type exit or press Ctrl+D to leave. 'Connection refused' = no SSH server listening; 'Permission denied' = wrong user, password or key.",
+        "risk": "read"
+      },
+      {
+        "title": "Use a non-standard port",
+        "cmd": "ssh -p 2222 <user>@<host>",
+        "explain": "-p chooses the server port (default 22).",
+        "risk": "read",
+        "options": [["-p", "Remote port"]]
+      },
+      {
+        "title": "Run one command remotely",
+        "cmd": "ssh <user>@<host> 'uname -a; uptime'",
+        "explain": "Quote the remote command so the whole thing is executed on the remote side rather than by your local shell.",
+        "risk": "read"
+      }
+    ]
+  },
+  {
+    "id": "ssh-keygen",
+    "name": "ssh-keygen",
+    "category": "network",
+    "summary": "Create SSH key pairs for password-less login and manage known host keys.",
+    "aliases": ["ssh key", "ssh-copy-id", "public key"],
+    "tags": ["key", "public key", "private key", "github ssh", "passwordless", "known_hosts"],
+    "man": "ssh-keygen.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "openssh-client", "fedora": "openssh", "arch": "openssh", "alpine": "openssh-keygen" } },
+    "compat": "Share only the .pub file. The private key (without .pub) must stay secret and readable only by you (chmod 600).",
+    "examples": [
+      {
+        "title": "Create a new key pair",
+        "cmd": "ssh-keygen -t ed25519 -C '<comment>'",
+        "explain": "Prompts for a file name (default ~/.ssh/id_ed25519) and an optional passphrase. The comment, often your e-mail, helps you recognise the key later.",
+        "risk": "modify",
+        "warning": "If a key with the chosen name exists you are asked before it is overwritten. Overwriting a key you already use locks you out of servers that trust it.",
+        "options": [["-t ed25519", "Key type (modern, short keys)"], ["-C", "Comment stored in the public key"]]
+      },
+      {
+        "title": "Install your public key on a remote machine",
+        "cmd": "ssh-copy-id <user>@<host>",
+        "explain": "Appends your public key to ~/.ssh/authorized_keys on the remote host so future logins do not ask for the password.",
+        "risk": "modify"
+      },
+      {
+        "title": "Forget an outdated host key",
+        "cmd": "ssh-keygen -R <host>",
+        "explain": "Removes the stored key for <host> from ~/.ssh/known_hosts (a backup is saved as known_hosts.old). Use it after reinstalling or reflashing a device you control.",
+        "risk": "modify",
+        "options": [["-R", "Remove the host's keys from known_hosts"]]
+      }
+    ]
+  },
+  {
+    "id": "scp",
+    "name": "scp",
+    "category": "network",
+    "summary": "Copy files to or from a remote machine over SSH.",
+    "aliases": ["secure copy", "copy to board", "remote copy"],
+    "tags": ["copy", "remote", "upload", "download", "board", "target", "deploy binary"],
+    "man": "scp.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "openssh-client", "fedora": "openssh-clients", "arch": "openssh", "alpine": "openssh-client" } },
+    "compat": "Recent OpenSSH scp uses the SFTP protocol; if a small embedded SSH server lacks SFTP, add -O to use the legacy protocol.",
+    "examples": [
+      {
+        "title": "Copy a local file to a remote directory",
+        "cmd": "scp <file> <user>@<host>:<remote-dir>/",
+        "explain": "Typical for deploying a cross-compiled binary to a board. The colon separates host from remote path.",
+        "risk": "modify",
+        "warning": "A remote file with the same name is overwritten without asking."
+      },
+      {
+        "title": "Copy a file from the remote machine",
+        "cmd": "scp <user>@<host>:<remote-file> .",
+        "explain": "The trailing . means 'into the current directory'.",
+        "risk": "modify",
+        "warning": "Overwrites a local file with the same name."
+      }
+    ]
+  },
+  {
+    "id": "rsync",
+    "name": "rsync",
+    "category": "network",
+    "summary": "Efficiently synchronise directories locally or over SSH, copying only what changed.",
+    "aliases": ["sync folders", "backup", "mirror"],
+    "tags": ["sync", "backup", "copy", "remote", "incremental", "dry run", "deploy"],
+    "man": "rsync.1",
+    "docs": [{ "label": "rsync documentation", "url": "https://rsync.samba.org/documentation.html" }],
+    "install": { "status": "often-missing", "packages": { "debian": "rsync", "fedora": "rsync", "arch": "rsync", "alpine": "rsync" }, "note": "Must be installed on both ends for remote copies." },
+    "compat": "A trailing slash on the source matters: src/ copies the contents of src, src copies the directory itself.",
+    "examples": [
+      {
+        "title": "Preview a sync with a dry run",
+        "cmd": "rsync -av --dry-run <source-dir>/ <destination-dir>/",
+        "explain": "Lists what would be transferred without copying anything. Always do this first.",
+        "risk": "read",
+        "options": [["-a", "Archive mode: recursive, keep permissions, times, links"], ["-v", "Verbose"], ["--dry-run", "Show what would happen, change nothing"]],
+        "test": { "vars": { "source-dir": "src", "destination-dir": "copy" }, "before": "mkdir copy", "after": "ls copy | wc -l", "expect": "hello\\.c[\\s\\S]*^0$", "needs": ["rsync"] }
+      },
+      {
+        "title": "Sync a directory to a remote machine",
+        "cmd": "rsync -av <source-dir>/ <user>@<host>:<remote-dir>/",
+        "explain": "Copies only new or changed files. Re-running it after a small change is fast.",
+        "risk": "modify",
+        "warning": "Changed files at the destination are overwritten. Run with --dry-run first.",
+        "options": [["-a", "Archive mode"], ["-v", "Verbose"]]
+      },
+      {
+        "title": "Mirror exactly, deleting extra files at the destination",
+        "cmd": "rsync -av --delete <source-dir>/ <destination-dir>/",
+        "explain": "Makes the destination identical to the source, removing files that only exist at the destination.",
+        "risk": "destructive",
+        "warning": "--delete permanently removes destination files that are not in the source. Swapping source and destination, or forgetting a trailing slash, can wipe the wrong side. Run the identical command with --dry-run first.",
+        "options": [["--delete", "Delete destination files missing from the source"]]
+      }
+    ]
+  },
+  {
+    "id": "dig",
+    "name": "dig",
+    "category": "network",
+    "summary": "Query DNS servers to see what a host name resolves to.",
+    "aliases": ["nslookup", "dns lookup", "host"],
+    "tags": ["dns", "resolve", "domain", "name resolution", "ip of domain"],
+    "man": "dig.1", "manSite": "debian",
+    "docs": [{ "label": "BIND 9 dig manual", "url": "https://bind9.readthedocs.io/en/latest/manpages.html" }],
+    "install": { "status": "often-missing", "packages": { "debian": "bind9-dnsutils", "fedora": "bind-utils", "arch": "bind", "alpine": "bind-tools" } },
+    "compat": "getent hosts <name> is always available and uses the same resolver as normal programs (including /etc/hosts), while dig asks DNS servers directly.",
+    "examples": [
+      {
+        "title": "Short answer: just the addresses",
+        "cmd": "dig +short <domain>",
+        "explain": "Empty output means no A record was found.",
+        "risk": "read",
+        "options": [["+short", "Print only the answer"]]
+      },
+      {
+        "title": "Resolve the way ordinary programs do",
+        "cmd": "getent hosts <name>",
+        "explain": "Consults /etc/hosts and DNS according to /etc/nsswitch.conf. If this works but dig fails (or vice versa), the difference is in that configuration.",
+        "risk": "read",
+        "test": { "vars": { "name": "localhost" }, "expect": "(127\\.0\\.0\\.1|::1)" }
+      }
+    ]
+  }
+]

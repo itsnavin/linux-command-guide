@@ -1,0 +1,16 @@
+[
+  { "id": "shell", "label": "Shell essentials", "description": "Getting help, variables, history and the building blocks every other command relies on." },
+  { "id": "files", "label": "Files & navigation", "description": "Move around the file system and create, copy, move, link and remove files." },
+  { "id": "viewing", "label": "Viewing files", "description": "Read files, page through long output, compare files." },
+  { "id": "search", "label": "Finding things", "description": "Find files by name, size or age, search inside files, locate programs." },
+  { "id": "text", "label": "Text processing & pipes", "description": "Sort, filter, cut and transform text streams; combine commands with pipes." },
+  { "id": "permissions", "label": "Users & permissions", "description": "Ownership, permission bits, groups and running commands as root." },
+  { "id": "processes", "label": "Processes & jobs", "description": "See what is running, stop programs, run things in the background." },
+  { "id": "system", "label": "System, disks & hardware", "description": "Kernel version, memory, disk space, block devices, CPUs, USB and PCI devices." },
+  { "id": "network", "label": "Networking", "description": "Addresses, routes, open ports, connectivity checks, downloads and remote shells." },
+  { "id": "archives", "label": "Archives, compression & checksums", "description": "Bundle and compress files with tar, gzip, xz and zip; verify downloads with checksums." },
+  { "id": "packages", "label": "Package management", "description": "Search, install and remove software on Debian/Ubuntu, Fedora, Arch and Alpine." },
+  { "id": "services", "label": "Services & logs", "description": "systemd services, the journal and the kernel ring buffer." },
+  { "id": "dev", "label": "C development & build", "description": "Compile, build, debug and inspect C programs and ELF binaries." },
+  { "id": "kernel", "label": "Kernel modules & devices", "description": "Inspect, load and unload kernel modules and watch device events." }
+]

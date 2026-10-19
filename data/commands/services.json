@@ -1,0 +1,152 @@
+[
+  {
+    "id": "systemctl",
+    "name": "systemctl",
+    "category": "services",
+    "summary": "Inspect and control systemd services (units): status, start, stop, enable at boot.",
+    "aliases": ["service", "systemd", "start service", "restart service", "enable service"],
+    "tags": ["service", "daemon", "systemd", "boot", "status", "unit", "failed services"],
+    "man": "systemctl.1",
+    "docs": [{ "label": "systemd documentation", "url": "https://systemd.io/" }],
+    "install": { "status": "usually-installed", "packages": { "debian": "systemd", "fedora": "systemd", "arch": "systemd" }, "note": "Only on systemd-based systems. Alpine (OpenRC), many BusyBox/Buildroot images (SysV init scripts), WSL1 and most containers do not run systemd; 'System has not been booted with systemd' means exactly that." },
+    "compat": "Yocto images may use systemd or SysV init depending on DISTRO_FEATURES / INIT_MANAGER. On SysV systems services are scripts in /etc/init.d/.",
+    "examples": [
+      {
+        "title": "Check a service's status and recent log lines",
+        "cmd": "systemctl status <service>",
+        "explain": "Read-only; works without root, though some log lines may be hidden.",
+        "risk": "read",
+        "output": "'Active: active (running)' is healthy; 'failed' shows the exit code. 'Loaded: ... enabled' means it starts at boot. The last few journal lines appear below."
+      },
+      {
+        "title": "List services that failed",
+        "cmd": "systemctl --failed",
+        "explain": "A quick health check after boot.",
+        "risk": "read"
+      },
+      {
+        "title": "List running services",
+        "cmd": "systemctl list-units --type=service --state=running",
+        "explain": "Shows what is currently active.",
+        "risk": "read",
+        "options": [["--type=service", "Only service units"], ["--state=running", "Only running units"]]
+      },
+      {
+        "title": "Restart a service",
+        "cmd": "sudo systemctl restart <service>",
+        "explain": "Stops then starts it, e.g. after editing its config file.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Interrupts the service. Restarting sshd or a network service on a remote machine can cut off your own connection."
+      },
+      {
+        "title": "Start at boot and start now",
+        "cmd": "sudo systemctl enable --now <service>",
+        "explain": "enable creates boot-time links; --now also starts it immediately.",
+        "risk": "modify",
+        "root": true,
+        "warning": "Changes boot configuration as root. Disable again with sudo systemctl disable --now <service>."
+      }
+    ]
+  },
+  {
+    "id": "journalctl",
+    "name": "journalctl",
+    "category": "services",
+    "summary": "Read the systemd journal: logs from services, the kernel and boots.",
+    "aliases": ["logs", "system log", "syslog", "view logs"],
+    "tags": ["log", "logs", "journal", "systemd", "boot log", "service log", "error", "kernel messages", "read logs"],
+    "man": "journalctl.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "systemd", "fedora": "systemd", "arch": "systemd" }, "note": "Only where systemd-journald runs. Elsewhere logs are usually plain files in /var/log/ (e.g. /var/log/syslog, /var/log/messages) or only kernel messages via dmesg." },
+    "compat": "Without root you may only see your own user's logs. Members of the systemd-journal or adm group (depending on distribution) can read the system journal; add yourself only if you understand that grants access to all logs.",
+    "examples": [
+      {
+        "title": "Logs of one service from the current boot",
+        "cmd": "journalctl -u <service> -b",
+        "explain": "Opens in a pager: press / to search, G for the end, q to quit.",
+        "risk": "read",
+        "options": [["-u", "Only this unit (service)"], ["-b", "Only the current boot"]],
+        "output": "Each line: timestamp, host, process[PID]: message. 'No journal files were found' or missing lines usually means you lack permission; try with sudo or check your groups."
+      },
+      {
+        "title": "Follow new log lines live",
+        "cmd": "journalctl -f",
+        "explain": "Like tail -f for the journal. Plug in a USB device in another window and watch. Ctrl+C stops.",
+        "risk": "read",
+        "options": [["-f", "Follow: keep printing new entries"]]
+      },
+      {
+        "title": "Only errors (and worse) from this boot",
+        "cmd": "journalctl -p err -b",
+        "explain": "Priorities from most to least severe: emerg, alert, crit, err, warning, notice, info, debug.",
+        "risk": "read",
+        "options": [["-p err", "Priority err or more severe"], ["-b", "Current boot"]]
+      },
+      {
+        "title": "Kernel messages with readable timestamps",
+        "cmd": "journalctl -k --since '10 min ago'",
+        "explain": "Like dmesg, but persistent across reboots if the journal is stored on disk. Use -b -1 for the previous boot.",
+        "risk": "read",
+        "options": [["-k", "Kernel messages only"], ["--since", "Start time, e.g. '2024-05-01 10:00' or '1 hour ago'"]]
+      },
+      {
+        "title": "Read the system journal with root",
+        "cmd": "sudo journalctl -u <service> -n 50 --no-pager",
+        "explain": "Prints the last 50 lines directly, useful for pasting into a bug report (remove secrets first).",
+        "risk": "read",
+        "root": true,
+        "warning": "Runs as root to read all logs. Logs can contain hostnames, user names and tokens; review before sharing.",
+        "options": [["-n 50", "Last 50 entries"], ["--no-pager", "Print directly instead of opening a pager"]]
+      }
+    ]
+  },
+  {
+    "id": "dmesg",
+    "name": "dmesg",
+    "category": "services",
+    "summary": "Print the kernel ring buffer: driver, USB, disk and boot messages from the kernel.",
+    "aliases": ["kernel log", "kernel messages", "printk"],
+    "tags": ["kernel", "driver", "log", "usb", "printk", "probe", "error", "boot", "module", "read logs"],
+    "man": "dmesg.1",
+    "install": { "status": "usually-installed", "packages": { "debian": "util-linux", "fedora": "util-linux", "arch": "util-linux", "alpine": "util-linux (BusyBox dmesg by default)" } },
+    "compat": "Many distributions set kernel.dmesg_restrict=1, so dmesg without root fails with 'Operation not permitted'; use sudo dmesg or journalctl -k (if allowed). BusyBox dmesg lacks -T, -w and --level. The buffer is a fixed-size ring: old messages are lost.",
+    "examples": [
+      {
+        "title": "Recent kernel messages with human-readable times",
+        "cmd": "sudo dmesg -T | tail -n 30",
+        "explain": "Shows the last 30 lines. Your driver's printk/pr_info/dev_err output appears here.",
+        "risk": "read",
+        "root": true,
+        "warning": "Uses sudo only to read the log (needed when dmesg_restrict=1). -T times can drift after suspend/resume.",
+        "options": [["-T", "Human-readable timestamps"]],
+        "output": "The number in [brackets] or the time is when it was logged. Look for lines naming your device, driver, 'error', 'failed' or a call trace."
+      },
+      {
+        "title": "Watch new kernel messages live",
+        "cmd": "sudo dmesg -w",
+        "explain": "Keep it open while you insmod a module or plug in hardware. Ctrl+C stops.",
+        "risk": "read",
+        "root": true,
+        "warning": "Uses sudo only to read the kernel log.",
+        "options": [["-w", "Wait for and print new messages"]]
+      },
+      {
+        "title": "Only warnings and errors",
+        "cmd": "sudo dmesg --level=err,warn",
+        "explain": "Filters out the large volume of info messages.",
+        "risk": "read",
+        "root": true,
+        "warning": "Uses sudo only to read the kernel log.",
+        "options": [["--level", "Comma-separated levels: emerg, alert, crit, err, warn, notice, info, debug"]]
+      },
+      {
+        "title": "Search kernel messages for a driver or device",
+        "cmd": "sudo dmesg | grep -i <word>",
+        "explain": "e.g. usb, tty, i2c or your module name. -i ignores case.",
+        "risk": "read",
+        "root": true,
+        "warning": "sudo applies only to dmesg; grep runs as you."
+      }
+    ]
+  }
+]

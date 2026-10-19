@@ -1,0 +1,252 @@
+[
+  {
+    "id": "man",
+    "name": "man",
+    "category": "shell",
+    "summary": "Read the manual page for a command, system call, C library function or config file.",
+    "aliases": ["manual", "apropos", "help pages"],
+    "tags": ["help", "documentation", "manual", "learn", "syscall", "library function", "c function"],
+    "man": "man.1",
+    "install": {
+      "status": "usually-installed",
+      "packages": { "debian": "man-db", "fedora": "man-db", "arch": "man-db", "alpine": "mandoc" },
+      "note": "Minimal container images often strip man pages. Section 2/3 pages for C come from the manpages-dev (Debian/Ubuntu) or man-pages (Fedora, Arch, Alpine) package."
+    },
+    "compat": "Manual sections: 1 user commands, 2 system calls, 3 C library functions, 4 devices, 5 file formats, 7 overviews, 8 administration commands. Embedded/BusyBox systems usually ship no man pages at all, so read them on your development machine.",
+    "examples": [
+      {
+        "title": "Open the manual for a command",
+        "cmd": "man <command>",
+        "explain": "Opens the page in a pager (usually less). Use arrow keys or Space to scroll, / to search, q to quit.",
+        "risk": "read",
+        "options": [["<command>", "Name of the command, e.g. ls or tar"]]
+      },
+      {
+        "title": "Read a C library function, not the shell command of the same name",
+        "cmd": "man 3 printf",
+        "explain": "Without a section number you get printf(1), the shell command. Section 3 is the C library function you call from C code, including its #include line and return value.",
+        "risk": "read",
+        "options": [["3", "Manual section 3: C library functions (2 = system calls such as open, read, ioctl)"]]
+      },
+      {
+        "title": "Read the documentation for a system call",
+        "cmd": "man 2 open",
+        "explain": "Section 2 describes kernel system calls: arguments, flags such as O_RDONLY, and every errno value the call can return. Very useful when a C program fails with an error code.",
+        "risk": "read",
+        "options": [["2", "Manual section 2: system calls"]]
+      },
+      {
+        "title": "Search manual page descriptions by keyword",
+        "cmd": "man -k <keyword>",
+        "explain": "Lists pages whose short description mentions the keyword. Same as the apropos command. Prints 'nothing appropriate' if the index is missing or empty.",
+        "risk": "read",
+        "options": [["-k", "Search names and short descriptions (apropos)"]]
+      }
+    ]
+  },
+  {
+    "id": "type",
+    "name": "type",
+    "category": "shell",
+    "summary": "Show whether a name is a shell builtin, alias, function or a program on disk (and which one runs).",
+    "aliases": ["command -v", "which program runs"],
+    "tags": ["builtin", "alias", "path", "which", "where is command", "resolve command"],
+    "docs": [{ "label": "Bash manual: Bash builtins", "url": "https://www.gnu.org/software/bash/manual/html_node/Bash-Builtins.html" }],
+    "install": { "status": "builtin", "note": "Built into the shell; there is nothing to install." },
+    "compat": "type -a is a Bash feature. In plain POSIX sh (dash, BusyBox ash) use command -v, which is portable.",
+    "examples": [
+      {
+        "title": "Find out what a name refers to",
+        "cmd": "type cd",
+        "explain": "Prints for example 'cd is a shell builtin'. Builtins have no separate man page; read them with help cd in Bash.",
+        "risk": "read",
+        "test": { "expect": "cd is a shell builtin" }
+      },
+      {
+        "title": "List every match, in the order the shell tries them",
+        "cmd": "type -a ls",
+        "explain": "Shows aliases first (e.g. 'ls is aliased to ls --color=auto') and then each matching file in PATH. The first line is what actually runs.",
+        "risk": "read",
+        "options": [["-a", "Show all aliases, functions, builtins and files with this name"]]
+      },
+      {
+        "title": "Portable check whether a program exists",
+        "cmd": "command -v gcc",
+        "explain": "Prints the path (or the name, for builtins) and exits with status 0 if found; prints nothing and exits non-zero if not. Works in sh scripts: command -v gcc >/dev/null || echo 'gcc missing'.",
+        "risk": "read",
+        "options": [["-v", "Print how the name would be resolved instead of running it"]]
+      }
+    ]
+  },
+  {
+    "id": "echo",
+    "name": "echo",
+    "category": "shell",
+    "summary": "Print text and variable values; with redirection, write text into files.",
+    "aliases": ["print text", "write to file"],
+    "tags": ["print", "output", "variable", "redirect", "overwrite", "append", "quotes"],
+    "man": "echo.1",
+    "docs": [{ "label": "Bash manual: Redirections", "url": "https://www.gnu.org/software/bash/manual/html_node/Redirections.html" }],
+    "install": { "status": "builtin", "note": "Every shell has an echo builtin; /bin/echo also exists from coreutils or BusyBox." },
+    "compat": "Options such as -e and -n behave differently between bash, dash and BusyBox. For anything beyond plain text, printf is more predictable.",
+    "examples": [
+      {
+        "title": "Print a variable inside double quotes",
+        "cmd": "echo \"Hello, $USER\"",
+        "explain": "Double quotes let the shell expand $USER but keep the text as one argument. Without quotes, extra spaces collapse and wildcard characters may expand.",
+        "risk": "read",
+        "test": { "expect": "^Hello, " }
+      },
+      {
+        "title": "Print text literally with single quotes",
+        "cmd": "echo 'Price: $5 and * stays a star'",
+        "explain": "Inside single quotes nothing is expanded: no variables, no wildcards. Use single quotes when you mean the exact characters.",
+        "risk": "read",
+        "test": { "expect": "Price: \\$5 and \\* stays a star" }
+      },
+      {
+        "title": "Overwrite vs append to a file",
+        "cmd": "echo 'first line' > notes-out.txt && echo 'second line' >> notes-out.txt",
+        "explain": "> creates the file or silently REPLACES all of its contents. >> creates it or adds to the end. && runs the second command only if the first succeeded.",
+        "risk": "modify",
+        "warning": "A single > on an existing file erases what was there. Double-check the file name; in Bash, set -o noclobber makes > refuse to overwrite.",
+        "options": [[">", "Redirect output, truncating (emptying) the file first"], [">>", "Redirect output, appending to the end"], ["&&", "Run the next command only if the previous one exited with status 0"]],
+        "test": { "after": "cat notes-out.txt", "expect": "first line\\nsecond line" }
+      }
+    ]
+  },
+  {
+    "id": "printf",
+    "name": "printf",
+    "category": "shell",
+    "summary": "Print formatted text using C-style format strings; more portable than echo.",
+    "aliases": ["format output"],
+    "tags": ["print", "format", "hex", "padding", "newline", "portable"],
+    "man": "printf.1",
+    "install": { "status": "builtin", "note": "Builtin in bash, dash and BusyBox ash; /usr/bin/printf comes from coreutils." },
+    "compat": "Format specifiers work like C printf(3) but there is no automatic newline: add \\n yourself.",
+    "examples": [
+      {
+        "title": "Print a value followed by a newline",
+        "cmd": "printf '%s\\n' \"$HOME\"",
+        "explain": "%s is replaced by the next argument; \\n adds the newline. If you give more arguments than placeholders, the format is reused for each one.",
+        "risk": "read",
+        "options": [["%s", "Insert the next argument as a string"], ["\\n", "Newline"]]
+      },
+      {
+        "title": "Convert decimal to hexadecimal",
+        "cmd": "printf '%x\\n' 255",
+        "explain": "Prints ff. Handy when reading register values or addresses. Use %X for upper case or %#x to get the 0x prefix.",
+        "risk": "read",
+        "options": [["%x", "Unsigned integer in lower-case hexadecimal"]],
+        "test": { "expect": "^ff$" }
+      },
+      {
+        "title": "Align columns",
+        "cmd": "printf '%-10s %5d\\n' cpu 4 ram 8",
+        "explain": "%-10s pads the text to 10 characters, left-aligned; %5d right-aligns a number in 5 characters. The format is repeated for each pair of arguments.",
+        "risk": "read",
+        "options": [["%-10s", "String padded to 10 characters, left-aligned"], ["%5d", "Integer right-aligned in 5 characters"]],
+        "test": { "expect": "cpu +4\\nram +8" }
+      }
+    ]
+  },
+  {
+    "id": "export",
+    "name": "export",
+    "category": "shell",
+    "summary": "Set environment variables that are passed to programs you start (PATH, CC, ARCH, CROSS_COMPILE...).",
+    "aliases": ["env", "printenv", "environment variable", "set variable"],
+    "tags": ["environment", "variable", "path", "cross compile", "cross_compile", "arch", "bashrc"],
+    "man": "env.1",
+    "docs": [{ "label": "Bash manual: Bourne shell builtins", "url": "https://www.gnu.org/software/bash/manual/html_node/Bourne-Shell-Builtins.html" }],
+    "install": { "status": "builtin", "note": "export is a shell builtin; env and printenv come from coreutils or BusyBox." },
+    "compat": "Variables set with export last only for the current shell session and programs started from it. To make them permanent add the line to ~/.bashrc (Bash) or ~/.profile.",
+    "examples": [
+      {
+        "title": "Add a directory to the front of PATH",
+        "cmd": "export PATH=\"$HOME/.local/bin:$PATH\"",
+        "explain": "Programs in the new directory are found before system ones. Keep :$PATH at the end, otherwise you lose access to every other command in this shell.",
+        "risk": "modify",
+        "warning": "Writing PATH=\"something\" without :$PATH replaces the whole search path for this shell. Open a new terminal to recover.",
+        "options": [["PATH", "Colon-separated list of directories searched for commands"]]
+      },
+      {
+        "title": "Set a variable for one command only",
+        "cmd": "LC_ALL=C sort <file>",
+        "explain": "VAR=value before a command sets the variable just for that command. Here it makes sort use plain byte order regardless of your language settings.",
+        "risk": "read"
+      },
+      {
+        "title": "Print one environment variable",
+        "cmd": "printenv PATH",
+        "explain": "Prints the value, or nothing (exit status 1) if the variable is not set or not exported.",
+        "risk": "read",
+        "test": { "expect": "/" }
+      },
+      {
+        "title": "List all environment variables, sorted",
+        "cmd": "env | sort",
+        "explain": "env with no arguments prints NAME=value for every exported variable. Be careful when sharing this output: it can contain tokens or passwords.",
+        "risk": "read",
+        "test": { "expect": "PATH=" }
+      }
+    ]
+  },
+  {
+    "id": "alias",
+    "name": "alias",
+    "category": "shell",
+    "summary": "Create short names for longer commands in your interactive shell.",
+    "aliases": ["unalias", "shortcut"],
+    "tags": ["shortcut", "bashrc", "customize", "ll"],
+    "docs": [{ "label": "Bash manual: Aliases", "url": "https://www.gnu.org/software/bash/manual/html_node/Aliases.html" }],
+    "install": { "status": "builtin", "note": "Shell builtin." },
+    "compat": "Aliases only apply to interactive shells by default, not to scripts. Put permanent aliases in ~/.bashrc.",
+    "examples": [
+      {
+        "title": "Show all current aliases",
+        "cmd": "alias",
+        "explain": "Many distributions predefine aliases such as ll or ls --color=auto. This is why a command may behave differently on another machine.",
+        "risk": "read"
+      },
+      {
+        "title": "Define an alias for this session",
+        "cmd": "alias ll='ls -alF'",
+        "explain": "Typing ll now runs ls -alF. Use single quotes so nothing inside is expanded when the alias is defined.",
+        "risk": "modify"
+      },
+      {
+        "title": "Remove an alias",
+        "cmd": "unalias ll",
+        "explain": "Deletes the alias from the current shell only. It comes back in new shells if it is defined in ~/.bashrc.",
+        "risk": "modify"
+      }
+    ]
+  },
+  {
+    "id": "history",
+    "name": "history",
+    "category": "shell",
+    "summary": "List and search commands you ran earlier in the shell.",
+    "aliases": ["previous commands", "ctrl-r"],
+    "tags": ["recall", "repeat", "previous", "search history"],
+    "docs": [{ "label": "Bash manual: Bash history builtins", "url": "https://www.gnu.org/software/bash/manual/html_node/Bash-History-Builtins.html" }],
+    "install": { "status": "builtin", "note": "Bash builtin. BusyBox ash has a simpler history if built with that feature." },
+    "compat": "Press Ctrl+R in Bash and type part of an old command to search history interactively; press Ctrl+R again for older matches.",
+    "examples": [
+      {
+        "title": "Show the last 20 commands",
+        "cmd": "history 20",
+        "explain": "Each line starts with a number. !<number> re-runs that entry, so check what it is first.",
+        "risk": "read"
+      },
+      {
+        "title": "Find an old command by keyword",
+        "cmd": "history | grep <word>",
+        "explain": "Pipes the whole history into grep. Useful for recovering a long gcc or make command you typed earlier.",
+        "risk": "read"
+      }
+    ]
+  }
+]
